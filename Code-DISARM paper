@@ -53,6 +53,7 @@ qiime feature-table tabulate-seqs \
   --o-visualization Disarm-only-rep-seqs-run1.qzv
 
 #SEQUENCING QUALITY CONTROL (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
+#File "Silva132-99-ref-seqs.qza" available at https://drive.google.com/file/d/1tXllQlQ5gSU21JYt6t8HHfup2Cz-1YRs/view?usp=sharing
 qiime quality-control exclude-seqs \
   --i-query-sequences Disarm-only-rep-seqs-run1.qza \
   --i-reference-sequences Silva132-99-ref-seqs.qza \
@@ -90,6 +91,7 @@ qiime feature-table tabulate-seqs \
   --o-visualization Disarm-only-rep-seqs-run1-filtered.qzv
 
 #TAXONOMIC CLASSIFICATION (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
+#File "Silva132-classifier-my-primers-majority-v-0.22.1.qza" available at https://drive.google.com/file/d/1w9ip_WVazOE55p1oGs-V9PdFg0WAi262/view?usp=sharing
 qiime feature-classifier classify-sklearn \
   --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
   --i-reads Disarm-only-rep-seqs-run1-filtered.qza \
@@ -177,6 +179,7 @@ qiime feature-table tabulate-seqs \
   --o-visualization Disarm-only-rep-seqs-run2.qzv
 
 #SEQUENCING QUALITY CONTROL (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
+#File "Silva132-99-ref-seqs.qza" available at https://drive.google.com/file/d/1tXllQlQ5gSU21JYt6t8HHfup2Cz-1YRs/view?usp=sharing
 qiime quality-control exclude-seqs \
   --i-query-sequences Disarm-only-rep-seqs-run2.qza \
   --i-reference-sequences Silva132-99-ref-seqs.qza \
@@ -214,6 +217,7 @@ qiime feature-table tabulate-seqs \
   --o-visualization Disarm-only-rep-seqs-run2-filtered.qzv
 
 #TAXONOMIC CLASSIFICATION
+#File "Silva132-classifier-my-primers-majority-v-0.22.1.qza" available at https://drive.google.com/file/d/1w9ip_WVazOE55p1oGs-V9PdFg0WAi262/view?usp=sharing
 qiime feature-classifier classify-sklearn \
   --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
   --i-reads Disarm-only-rep-seqs-run2-filtered.qza \
