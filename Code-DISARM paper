@@ -107,6 +107,7 @@ qiime metadata tabulate \
 --m-input-file Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
 --o-visualization Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy-tabulated.qzv
 
+#File "Disarm_Library_Prep_full_simplified-R1.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
   --i-table Disarm-only-samples-dada2-run1-filtered.qza \
   --i-taxonomy Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
@@ -230,6 +231,7 @@ qiime metadata tabulate \
 --m-input-file Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
 --o-visualization Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy-tabulated.qzv
 
+#File "Disarm_Library_Prep_full_simplified-R2.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
   --i-table Disarm-only-samples-dada2-run2-filtered.qza \
   --i-taxonomy Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
@@ -286,6 +288,7 @@ qiime feature-table filter-features \
   --p-min-frequency 10 \
   --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza
 
+#File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table summarize \
   --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
   --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
@@ -316,6 +319,7 @@ qiime metadata tabulate \
 --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
 --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy-tabulated.qzv
 
+#File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
   --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
   --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
@@ -330,6 +334,7 @@ qiime taxa filter-table \
   --p-exclude mitochondria,chloroplast,archaea  \
   --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza 
 
+#File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table summarize \
   --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
   --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
@@ -344,6 +349,7 @@ qiime metadata tabulate \
   --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qza \
   --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qzv
 
+#File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
   --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
   --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
