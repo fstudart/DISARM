@@ -2,10 +2,160 @@ Author: Dr. Fernando Sergio S. Leitao Filho
 Center for Heart Lung Innovation – University of British Columbia
 E-mail: Fernando.Studart@hli.ubc.ca
 
-Part I – QIIME2® (Version used: 2018.8)
-#Place all fastq.gz files (both forward and reverse files from all samples) into the same folder; in this example: Sputum-112-Samples.
-#Note: All sequencing data already demultiplexed.
-#Importing Sputum Sequencing Data
+SEQUENCING DATA COMES FROM TWO BATCHES: 
+- BATCH 1: All samples collected at both time points were included in this batch, except for those related to Disarm participant 85 (who was randomized to the Formoterol arm). 
+For this participant, his samples collected during the first bronchoscopy visit were also included in batch 1. 
+
+- Batch 2: Contains all samples collected at second bronchocopy visit of Disarm participant 85. 
+
+QIIME2 VERSION USED IN THIS ANALSYS: 2020.2
+
+PART I - BATCH 1
+
+#IMPORTING DATA
+#Place all fastq.gz files (both forward and reverse files from all samples) into the same folder; in this example: Fastaq-R1.
+#Note: All sequencing data are already demultiplexed.
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path Fastaq-R1 \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path Disarm-only-demux-paired-end1.qza
+  
+ qiime demux summarize \
+  --i-data Disarm-only-demux-paired-end1.qza \
+  --o-visualization Disarm-only-demux-paired-end1.qzv
+
+#DENOISING DATA
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs Disarm-only-demux-paired-end1.qza \
+  --o-table Disarm-only-samples-dada2-run1.qza \
+  --p-n-threads 0 \
+  --o-representative-sequences Disarm-only-rep-seqs-run1.qza \
+  --p-trim-left-f 12 \
+  --p-trim-left-r 12 \
+  --p-trunc-len-f 242 \
+  --p-trunc-len-r 133 \
+  --o-denoising-stats Disarm-only-samples-denoising-stats-run1.qza
+ 
+qiime feature-table summarize \
+  --i-table Disarm-only-samples-dada2-run1.qza \
+  --o-visualization Disarm-only-samples-dada2-run1.qzv
+
+qiime metadata tabulate \
+  --m-input-file Disarm-only-samples-denoising-stats-run1.qza \
+  --o-visualization Disarm-only-samples-denoising-stats-run1.qzv
+qiime feature-table tabulate-seqs \
+  --i-data Disarm-only-rep-seqs-run1.qza \
+  --o-visualization Disarm-only-rep-seqs-run1.qzv
+
+#SEQUENCING QUALITY CONTROL
+qiime quality-control exclude-seqs \
+  --i-query-sequences Disarm-only-rep-seqs-run1.qza \
+  --i-reference-sequences Silva132-99-ref-seqs.qza \
+  --p-method blast \
+  --p-perc-identity 0.80 \
+  --p-perc-query-aligned 0.80 \
+  --o-sequence-hits hits-run1.qza \
+  --o-sequence-misses misses-run1.qza
+
+qiime feature-table tabulate-seqs \
+  --i-data hits-run1.qza \
+  --o-visualization hits-run1.qzv
+  
+qiime feature-table tabulate-seqs \
+  --i-data misses-run1.qza \
+  --o-visualization misses-run1.qzv
+
+qiime feature-table filter-features \
+  --i-table Disarm-only-samples-dada2-run1.qza \
+  --m-metadata-file misses-run1.qza \
+  --o-filtered-table Disarm-only-samples-dada2-run1-filtered.qza \
+  --p-exclude-ids
+qiime feature-table summarize \
+  --i-table Disarm-only-samples-dada2-run1-filtered.qza \
+  --o-visualization Disarm-only-samples-dada2-run1-filtered.qzv
+
+qiime feature-table filter-seqs \
+--i-data Disarm-only-rep-seqs-run1.qza \
+--i-table Disarm-only-samples-dada2-run1-filtered.qza \
+--o-filtered-data Disarm-only-rep-seqs-run1-filtered.qza
+
+qiime feature-table tabulate-seqs \
+  --i-data Disarm-only-rep-seqs-run1-filtered.qza \
+  --o-visualization Disarm-only-rep-seqs-run1-filtered.qzv
+
+#TAXONOMIC CLASSIFICATION
+qiime feature-classifier classify-sklearn \
+  --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
+  --i-reads Disarm-only-rep-seqs-run1-filtered.qza \
+  --p-reads-per-batch 2000 \
+  --p-n-jobs -2 \
+  --o-classification Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+  --verbose
+
+qiime metadata tabulate \
+  --m-input-file Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+  --o-visualization Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qzv
+
+qiime metadata tabulate \
+--m-input-file Disarm-only-rep-seqs-run1-filtered.qza \
+--m-input-file Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+--o-visualization Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy-tabulated.qzv
+
+qiime taxa barplot \
+  --i-table Disarm-only-samples-dada2-run1-filtered.qza \
+  --i-taxonomy Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+  --m-metadata-file Disarm_Library_Prep_full.txt \
+  --o-visualization Disarm-only-taxa-bar-plots-run1-filtered-Silva132.qzv
+
+#EXPORTING QIIME2 FILES (TO BE USED WITH THE DECONTAM R PACKAGE)
+#THESE STEPS WERE USED TO IDENTIFY POSSIBLE CONTAMINANTS 
+#EXPORTING OTU TABLE (AS A BIOM FILE)
+
+qiime tools export \
+--input-path Disarm-only-samples-dada2-run1-filtered.qza \
+--output-path exported-Decontam
+
+mv exported-Decontam/feature-table.biom exported-Decontam/pre-decontam-full-feature-table.biom
+
+#GENERATING A PHYLOGENETIC TREE FOR DIVERSITY ANALYSIS (TO BE USED WITH THE DECONTAM R PACKAGE)
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences Disarm-only-rep-seqs-run1-filtered-no-mock.qza \
+  --output-dir exported-Decontam/mafft-fasttree-output-raw-data-for-decontam
+
+qiime tools export \
+--input-path exported-Decontam/mafft-fasttree-output-raw-data-for-decontam/rooted_tree.qza \
+--output-path exported-Decontam
+
+mv exported-Decontam/tree.nwk exported-Decontam/Disarm-pre-Decontam-tree-full.nwk
+
+#EXPORTING TAXONOMIC FILES
+qiime tools export \
+--input-path Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+--output-path exported-Decontam
+
+#EDIT TAXONOMIC FILE
+echo -e "#OTUID\ttaxonomy\tconfidence" | cat - exported-Decontam/taxonomy.tsv > exported-Decontam/taxonomy1.tsv
+sed -i '2d' exported-Decontam/taxonomy1.tsv
+
+#Edit taxonomy.tsv and remove the D_0; D_1,… and overwrite taxonomy1.tsv
+
+#ADD TAXONOMIC CLASSIFICATION TO BIOM FILE
+biom add-metadata -i exported-Decontam/pre-decontam-full-feature-table.biom -o exported-Decontam/pre-decontam-table-with-taxonomy.biom --observation-metadata-fp exported-Decontam/taxonomy1.tsv --sc-separated taxonomy
+
+#MOVE TO R
+#SOURCE FILES:
+
+
+
+
+
+
+
+
+
+
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
   --input-path Sputum-112-Samples \
