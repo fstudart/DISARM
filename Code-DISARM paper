@@ -135,7 +135,7 @@ qiime metadata tabulate \
   --o-visualization Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-PART Ii - BATCH 2
+PART II - BATCH 2
 
 #IMPORTING DATA 
 #Place all fastq.gz files (both forward and reverse files from Batch 2) into the same folder; in this example: Fastq-R2.
@@ -257,6 +257,98 @@ qiime metadata tabulate \
   --m-input-file Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
   --o-visualization Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qzv
 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+PART III - MERGING BATCHES 1 AND 2
+
+qiime feature-table merge \
+  --i-tables Run1/Disarm-only-samples-dada2-run1-filtered.qza \
+  --i-tables Run2/Disarm-only-samples-dada2-run2-filtered.qza \
+  --o-merged-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza
+
+qiime feature-table summarize \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza \
+  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qzv 
+
+qiime feature-table merge-seqs \
+  --i-data Run1/Disarm-only-rep-seqs-run1-filtered.qza \
+  --i-data Run2/Disarm-only-rep-seqs-run2-filtered.qza \
+  --o-merged-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza
+
+qiime feature-table tabulate-seqs \
+  --i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza \
+  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qzv
+
+#Removing singletons and low abundant taxa
+qiime feature-table filter-features \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza \
+  --p-min-samples 2 \
+  --p-min-frequency 10 \
+  --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza
+
+qiime feature-table summarize \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
+  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qzv
+
+qiime feature-table filter-seqs \
+--i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza \
+--i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
+--o-filtered-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza
+
+qiime feature-table tabulate-seqs \
+  --i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
+  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qzv
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier Runs-combined/Silva132-classifier-my-primers-majority-v-0.22.1.qza \
+  --i-reads Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
+  --p-reads-per-batch 2000 \
+  --o-classification Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --verbose
+
+qiime metadata tabulate \
+  --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qzv
+
+qiime metadata tabulate \
+--m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
+--m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+--o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy-tabulated.qzv
+
+qiime taxa barplot \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
+  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --m-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Runs-combined/Disarm-only-taxa-bar-plots-both-runs-filtered-Silva132.qzv
+
+#Removing other known contaminants (Mitochondria, Chloroplast, and Archaea) and only keeping ASVs with at least taxonomic annotations at the phylum level
+qiime taxa filter-table \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
+  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --p-include D_1__\
+  --p-exclude mitochondria,chloroplast,archaea  \
+  --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza 
+
+qiime feature-table summarize \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
+  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qzv
+
+qiime feature-table filter-seqs \
+--i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
+--i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
+--o-filtered-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qza
+
+qiime metadata tabulate \
+  --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qza \
+  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qzv
+
+qiime taxa barplot \
+  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
+  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --m-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Runs-combined/Disarm-only-taxa-bar-plots-both-runs-filtered-Silva132-phyla.qzv
 
 
 
