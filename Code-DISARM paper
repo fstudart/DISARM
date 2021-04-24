@@ -8,12 +8,7 @@ For this participant, his samples collected during the first bronchoscopy visit 
 
 Batch 2: Contains all samples collected at the second bronchocopy visit of the Disarm participant 85. 
 
-Note: DISARM/Files_used_analysis/
-
-
-
-
-
+Note: File "Attributes.tsv" available in folder DISARM/Files_used_analysis indicates which samples were originated from each batch.
 
 QIIME2 VERSION USED IN THIS ANALSYS: 2020.2
 
@@ -79,6 +74,7 @@ qiime feature-table filter-features \
   --m-metadata-file misses-run1.qza \
   --o-filtered-table Disarm-only-samples-dada2-run1-filtered.qza \
   --p-exclude-ids
+
 qiime feature-table summarize \
   --i-table Disarm-only-samples-dada2-run1-filtered.qza \
   --o-visualization Disarm-only-samples-dada2-run1-filtered.qzv
