@@ -319,46 +319,46 @@ qiime metadata tabulate \
   --o-visualization Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qzv
 
 qiime metadata tabulate \
---m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
---m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
---o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy-tabulated.qzv
+--m-input-file Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qza \
+--m-input-file Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
+--o-visualization Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy-tabulated.qzv
 
 #File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
-  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
-  --m-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Runs-combined/Disarm-only-taxa-bar-plots-both-runs-filtered-Silva132.qzv
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency.qza \
+  --i-taxonomy Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
+  --m-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contigency-Silva132.qzv
 
 #Removing other known contaminants (Mitochondria, Chloroplast, and Archaea) and only keeping ASVs with at least taxonomic annotations at the phylum level
 qiime taxa filter-table \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
-  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency.qza \
+  --i-taxonomy Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
   --p-include D_1__\
-  --p-exclude mitochondria,chloroplast,archaea  \
-  --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza 
+  --p-exclude mitochondria,chloroplast,archaea \
+  --o-filtered-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza
 
 #File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table summarize \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
-  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qzv
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
+  --m-sample-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qzv
 
 qiime feature-table filter-seqs \
---i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
---i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
---o-filtered-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qza
+--i-data Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qza \
+--i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
+--o-filtered-data Disarm-only-rep-seqs-both-runs-after-decontam-contingency-phyla.qza
 
 qiime metadata tabulate \
-  --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qza \
-  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-phyla.qzv
+  --m-input-file Disarm-only-rep-seqs-both-runs-after-decontam-contingency-phyla.qza \
+  --o-visualization Disarm-only-rep-seqs-both-runs-after-decontam-contingency-phyla.qzv
 
 #File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime taxa barplot \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency-phyla.qza \
-  --i-taxonomy Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
-  --m-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Runs-combined/Disarm-only-taxa-bar-plots-both-runs-filtered-Silva132-phyla.qzv
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
+  --i-taxonomy Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
+  --m-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contingency-phyla.qzv
 
 
 
