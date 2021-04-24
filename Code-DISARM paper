@@ -109,44 +109,26 @@ qiime taxa barplot \
   --m-metadata-file Disarm_Library_Prep_full.txt \
   --o-visualization Disarm-only-taxa-bar-plots-run1-filtered-Silva132.qzv
 
-#EXPORTING QIIME2 FILES (TO BE USED WITH THE DECONTAM R PACKAGE)
-#THESE STEPS WERE USED TO IDENTIFY POSSIBLE CONTAMINANTS 
-#EXPORTING OTU TABLE (AS A BIOM FILE)
+#REMOVING ASVS IDENTIFIED AS POTENTIAL CONTAMINANTS ACCORDING TO THE DECONTAM R PACKAGE
+qiime feature-table filter-features \
+--i-table Disarm-only-samples-dada2-run1-filtered.qza \
+--m-metadata-file Decontam-Run1/Decontam-frequency.txt \
+--p-exclude-ids \
+--o-filtered-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza
 
-qiime tools export \
---input-path Disarm-only-samples-dada2-run1-filtered.qza \
---output-path exported-Decontam
+qiime feature-table summarize \
+  --i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
+  --m-sample-metadata-file Disarm_Library_Prep_full.txt \
+  --o-visualization Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qzv
 
-mv exported-Decontam/feature-table.biom exported-Decontam/pre-decontam-full-feature-table.biom
+qiime feature-table filter-seqs \
+--i-data Disarm-only-rep-seqs-run1-filtered-no-mock-BAL.qza \
+--i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
+--o-filtered-data Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza
 
-#GENERATING A PHYLOGENETIC TREE FOR DIVERSITY ANALYSIS (TO BE USED WITH THE DECONTAM R PACKAGE)
-qiime phylogeny align-to-tree-mafft-fasttree \
-  --i-sequences Disarm-only-rep-seqs-run1-filtered-no-mock.qza \
-  --output-dir exported-Decontam/mafft-fasttree-output-raw-data-for-decontam
-
-qiime tools export \
---input-path exported-Decontam/mafft-fasttree-output-raw-data-for-decontam/rooted_tree.qza \
---output-path exported-Decontam
-
-mv exported-Decontam/tree.nwk exported-Decontam/Disarm-pre-Decontam-tree-full.nwk
-
-#EXPORTING TAXONOMIC FILES
-qiime tools export \
---input-path Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
---output-path exported-Decontam
-
-#EDIT TAXONOMIC FILE
-echo -e "#OTUID\ttaxonomy\tconfidence" | cat - exported-Decontam/taxonomy.tsv > exported-Decontam/taxonomy1.tsv
-sed -i '2d' exported-Decontam/taxonomy1.tsv
-
-#Edit taxonomy.tsv and remove the D_0; D_1,… and overwrite taxonomy1.tsv
-
-#ADD TAXONOMIC CLASSIFICATION TO BIOM FILE
-biom add-metadata -i exported-Decontam/pre-decontam-full-feature-table.biom -o exported-Decontam/pre-decontam-table-with-taxonomy.biom --observation-metadata-fp exported-Decontam/taxonomy1.tsv --sc-separated taxonomy
-
-#MOVE TO R
-#SOURCE FILES:
-
+qiime metadata tabulate \
+  --m-input-file Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
+  --o-visualization Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
 
 
 
