@@ -15,12 +15,12 @@ QIIME2 VERSION USED IN THIS ANALSYS: 2020.2
 PART I - BATCH 1
 
 #IMPORTING DATA
-#Place all fastq.gz files (both forward and reverse files from all samples) into the same folder; in this example: Fastaq-R1.
+#Place all fastq.gz files (both forward and reverse files from Batch 1) into the same folder; in this example: Fastq-R1.
 #Note: All sequencing data are already demultiplexed.
 
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
-  --input-path Fastaq-R1 \
+  --input-path Fastq-R1 \
   --input-format CasavaOneEightSingleLanePerSampleDirFmt \
   --output-path Disarm-only-demux-paired-end1.qza
   
@@ -28,7 +28,7 @@ qiime tools import \
   --i-data Disarm-only-demux-paired-end1.qza \
   --o-visualization Disarm-only-demux-paired-end1.qzv
 
-#DENOISING DATA
+#DENOISING TH SEQUENCING DATA
 qiime dada2 denoise-paired \
   --i-demultiplexed-seqs Disarm-only-demux-paired-end1.qza \
   --o-table Disarm-only-samples-dada2-run1.qza \
@@ -47,11 +47,12 @@ qiime feature-table summarize \
 qiime metadata tabulate \
   --m-input-file Disarm-only-samples-denoising-stats-run1.qza \
   --o-visualization Disarm-only-samples-denoising-stats-run1.qzv
+
 qiime feature-table tabulate-seqs \
   --i-data Disarm-only-rep-seqs-run1.qza \
   --o-visualization Disarm-only-rep-seqs-run1.qzv
 
-#SEQUENCING QUALITY CONTROL
+#SEQUENCING QUALITY CONTROL (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
 qiime quality-control exclude-seqs \
   --i-query-sequences Disarm-only-rep-seqs-run1.qza \
   --i-reference-sequences Silva132-99-ref-seqs.qza \
@@ -88,7 +89,7 @@ qiime feature-table tabulate-seqs \
   --i-data Disarm-only-rep-seqs-run1-filtered.qza \
   --o-visualization Disarm-only-rep-seqs-run1-filtered.qzv
 
-#TAXONOMIC CLASSIFICATION
+#TAXONOMIC CLASSIFICATION (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
 qiime feature-classifier classify-sklearn \
   --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
   --i-reads Disarm-only-rep-seqs-run1-filtered.qza \
@@ -109,7 +110,7 @@ qiime metadata tabulate \
 qiime taxa barplot \
   --i-table Disarm-only-samples-dada2-run1-filtered.qza \
   --i-taxonomy Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
-  --m-metadata-file Disarm_Library_Prep_full.txt \
+  --m-metadata-file Disarm_Library_Prep_full_simplified-R1.txt \
   --o-visualization Disarm-only-taxa-bar-plots-run1-filtered-Silva132.qzv
 
 #REMOVING ASVS IDENTIFIED AS POTENTIAL CONTAMINANTS ACCORDING TO THE DECONTAM R PACKAGE
@@ -133,109 +134,110 @@ qiime metadata tabulate \
   --m-input-file Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
   --o-visualization Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
 
-xzsdcczxbzcxbxcbxcbxcbxcb
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+PART Ii - BATCH 2
 
-PART I - BATCH 2
-
-#IMPORTING DATA
-#Place all fastq.gz files (both forward and reverse files from all samples) into the same folder; in this example: Fastaq-R1.
+#IMPORTING DATA 
+#Place all fastq.gz files (both forward and reverse files from Batch 2) into the same folder; in this example: Fastq-R2.
 #Note: All sequencing data are already demultiplexed.
 
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
-  --input-path Fastaq-R1 \
+  --input-path Fastq-R2 \
   --input-format CasavaOneEightSingleLanePerSampleDirFmt \
-  --output-path Disarm-only-demux-paired-end1.qza
+  --output-path Disarm-only-demux-paired-end2.qza
   
  qiime demux summarize \
-  --i-data Disarm-only-demux-paired-end1.qza \
-  --o-visualization Disarm-only-demux-paired-end1.qzv
+  --i-data Disarm-only-demux-paired-end2.qza \
+  --o-visualization Disarm-only-demux-paired-end2.qzv
 
-#DENOISING DATA
+#DENOISING DATA (using the same trimming parameters as Batch 1)
 qiime dada2 denoise-paired \
-  --i-demultiplexed-seqs Disarm-only-demux-paired-end1.qza \
-  --o-table Disarm-only-samples-dada2-run1.qza \
+  --i-demultiplexed-seqs Disarm-only-demux-paired-end2.qza \
+  --o-table Disarm-only-samples-dada2-run2.qza \
   --p-n-threads 0 \
-  --o-representative-sequences Disarm-only-rep-seqs-run1.qza \
+  --o-representative-sequences Disarm-only-rep-seqs-run2.qza \
   --p-trim-left-f 12 \
   --p-trim-left-r 12 \
   --p-trunc-len-f 242 \
   --p-trunc-len-r 133 \
-  --o-denoising-stats Disarm-only-samples-denoising-stats-run1.qza
+  --o-denoising-stats Disarm-only-samples-denoising-stats-run2.qza
  
 qiime feature-table summarize \
-  --i-table Disarm-only-samples-dada2-run1.qza \
-  --o-visualization Disarm-only-samples-dada2-run1.qzv
+  --i-table Disarm-only-samples-dada2-run2.qza \
+  --o-visualization Disarm-only-samples-dada2-run2.qzv
 
 qiime metadata tabulate \
-  --m-input-file Disarm-only-samples-denoising-stats-run1.qza \
-  --o-visualization Disarm-only-samples-denoising-stats-run1.qzv
-qiime feature-table tabulate-seqs \
-  --i-data Disarm-only-rep-seqs-run1.qza \
-  --o-visualization Disarm-only-rep-seqs-run1.qzv
+  --m-input-file Disarm-only-samples-denoising-stats-run2.qza \
+  --o-visualization Disarm-only-samples-denoising-stats-run2.qzv
 
-#SEQUENCING QUALITY CONTROL
+qiime feature-table tabulate-seqs \
+  --i-data Disarm-only-rep-seqs-run2.qza \
+  --o-visualization Disarm-only-rep-seqs-run2.qzv
+
+#SEQUENCING QUALITY CONTROL (USING THE SILVA DATABASE V132 WITH 99% COVERAGE)
 qiime quality-control exclude-seqs \
-  --i-query-sequences Disarm-only-rep-seqs-run1.qza \
+  --i-query-sequences Disarm-only-rep-seqs-run2.qza \
   --i-reference-sequences Silva132-99-ref-seqs.qza \
   --p-method blast \
   --p-perc-identity 0.80 \
   --p-perc-query-aligned 0.80 \
-  --o-sequence-hits hits-run1.qza \
-  --o-sequence-misses misses-run1.qza
+  --o-sequence-hits hits-run2.qza \
+  --o-sequence-misses misses-run2.qza
 
 qiime feature-table tabulate-seqs \
-  --i-data hits-run1.qza \
-  --o-visualization hits-run1.qzv
+  --i-data hits-run2.qza \
+  --o-visualization hits-run2.qzv
   
 qiime feature-table tabulate-seqs \
-  --i-data misses-run1.qza \
-  --o-visualization misses-run1.qzv
+  --i-data misses-run2.qza \
+  --o-visualization misses-run2.qzv
 
 qiime feature-table filter-features \
-  --i-table Disarm-only-samples-dada2-run1.qza \
-  --m-metadata-file misses-run1.qza \
-  --o-filtered-table Disarm-only-samples-dada2-run1-filtered.qza \
+  --i-table Disarm-only-samples-dada2-run2.qza \
+  --m-metadata-file misses-run2.qza \
+  --o-filtered-table Disarm-only-samples-dada2-run2-filtered.qza \
   --p-exclude-ids
+
 qiime feature-table summarize \
-  --i-table Disarm-only-samples-dada2-run1-filtered.qza \
-  --o-visualization Disarm-only-samples-dada2-run1-filtered.qzv
+  --i-table Disarm-only-samples-dada2-run2-filtered.qza \
+  --o-visualization Disarm-only-samples-dada2-run2-filtered.qzv
 
 qiime feature-table filter-seqs \
---i-data Disarm-only-rep-seqs-run1.qza \
---i-table Disarm-only-samples-dada2-run1-filtered.qza \
---o-filtered-data Disarm-only-rep-seqs-run1-filtered.qza
+--i-data Disarm-only-rep-seqs-run2.qza \
+--i-table Disarm-only-samples-dada2-run2-filtered.qza \
+--o-filtered-data Disarm-only-rep-seqs-run2-filtered.qza
 
 qiime feature-table tabulate-seqs \
-  --i-data Disarm-only-rep-seqs-run1-filtered.qza \
-  --o-visualization Disarm-only-rep-seqs-run1-filtered.qzv
+  --i-data Disarm-only-rep-seqs-run2-filtered.qza \
+  --o-visualization Disarm-only-rep-seqs-run2-filtered.qzv
 
 #TAXONOMIC CLASSIFICATION
 qiime feature-classifier classify-sklearn \
   --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
-  --i-reads Disarm-only-rep-seqs-run1-filtered.qza \
+  --i-reads Disarm-only-rep-seqs-run2-filtered.qza \
   --p-reads-per-batch 2000 \
   --p-n-jobs -2 \
-  --o-classification Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
+  --o-classification Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
   --verbose
 
 qiime metadata tabulate \
-  --m-input-file Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
-  --o-visualization Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qzv
+  --m-input-file Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
+  --o-visualization Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qzv
 
 qiime metadata tabulate \
---m-input-file Disarm-only-rep-seqs-run1-filtered.qza \
---m-input-file Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
---o-visualization Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy-tabulated.qzv
+--m-input-file Disarm-only-rep-seqs-run2-filtered.qza \
+--m-input-file Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
+--o-visualization Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy-tabulated.qzv
 
 qiime taxa barplot \
-  --i-table Disarm-only-samples-dada2-run1-filtered.qza \
-  --i-taxonomy Disarm-only-rep-seqs-run1-filtered-SILVA132-taxonomy.qza \
-  --m-metadata-file Disarm_Library_Prep_full.txt \
-  --o-visualization Disarm-only-taxa-bar-plots-run1-filtered-Silva132.qzv
+  --i-table Disarm-only-samples-dada2-run2-filtered.qza \
+  --i-taxonomy Disarm-only-rep-seqs-run2-filtered-SILVA132-taxonomy.qza \
+  --m-metadata-file Disarm_Library_Prep_full_simplified-R2.txt \
+  --o-visualization Disarm-only-taxa-bar-plots-run2-filtered-Silva132.qzv
 
 #REMOVING ASVS IDENTIFIED AS POTENTIAL CONTAMINANTS ACCORDING TO THE DECONTAM R PACKAGE
-#File "Decontam-frequency-Batch1.txt" available in folder DISARM/Files_used_analysis/
+#File "Decontam-frequency-Batch2.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table filter-features \
 --i-table Disarm-only-samples-dada2-run1-filtered.qza \
 --m-metadata-file Decontam-Run1/Decontam-frequency-Batch1.txt \
