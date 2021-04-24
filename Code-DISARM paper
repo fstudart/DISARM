@@ -120,22 +120,22 @@ qiime taxa barplot \
 #File "Decontam-frequency-Batch1.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table filter-features \
 --i-table Disarm-only-samples-dada2-run1-filtered.qza \
---m-metadata-file Decontam-Run1/Decontam-frequency-Batch1.txt \
+--m-metadata-file Decontam-frequency-Batch1.txt \
 --p-exclude-ids \
---o-filtered-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza
+--o-filtered-table Disarm-only-samples-dada2-run1-filtered-after-decontam.qza
 
 qiime feature-table summarize \
-  --i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qzv
+  --i-table Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
+  --o-visualization Disarm-only-samples-dada2-run1-filtered-after-decontam.qzv
 
 qiime feature-table filter-seqs \
 --i-data Disarm-only-rep-seqs-run1-filtered.qza \
---i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
---o-filtered-data Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza
+--i-table Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
+--o-filtered-data Disarm-only-rep-seqs-run1-filtered-after-decontam.qza
 
 qiime metadata tabulate \
-  --m-input-file Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
+  --m-input-file Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
+  --o-visualization Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 PART II - BATCH 2
@@ -245,78 +245,78 @@ qiime taxa barplot \
 #REMOVING ASVS IDENTIFIED AS POTENTIAL CONTAMINANTS ACCORDING TO THE DECONTAM R PACKAGE
 #File "Decontam-frequency-Batch2.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table filter-features \
---i-table Disarm-only-samples-dada2-run1-filtered.qza \
---m-metadata-file Decontam-Run2/Decontam-frequency-Batch2.txt \
+--i-table Disarm-only-samples-dada2-run2-filtered.qza \
+--m-metadata-file Decontam-frequency-Batch2.txt \
 --p-exclude-ids \
---o-filtered-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza
+--o-filtered-table Disarm-only-samples-dada2-run2-filtered-after-decontam.qza
 
 qiime feature-table summarize \
-  --i-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qzv
+  --i-table Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
+  --o-visualization Disarm-only-samples-dada2-run2-filtered-after-decontam.qzv
 
 qiime feature-table filter-seqs \
 --i-data Disarm-only-rep-seqs-run2-filtered.qza \
---i-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
---o-filtered-data Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza
+--i-table Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
+--o-filtered-data Disarm-only-rep-seqs-run2-filtered-after-decontam.qza
 
 qiime metadata tabulate \
-  --m-input-file Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qzv
+  --m-input-file Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
+  --o-visualization Disarm-only-rep-seqs-run2-filtered-after-decontam.qzv
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 PART III - MERGING BATCHES 1 AND 2
 
 qiime feature-table merge \
-  --i-tables Run1/Disarm-only-samples-dada2-run1-filtered.qza \
-  --i-tables Run2/Disarm-only-samples-dada2-run2-filtered.qza \
-  --o-merged-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza
+  --i-tables Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
+  --i-tables Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
+  --o-merged-table Disarm-only-samples-dada2-both-runs-after-decontam.qza
 
 qiime feature-table summarize \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza \
-  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qzv 
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam.qza \
+  --m-sample-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization Disarm-only-samples-dada2-both-runs-after-decontam.qzv
 
 qiime feature-table merge-seqs \
-  --i-data Run1/Disarm-only-rep-seqs-run1-filtered.qza \
-  --i-data Run2/Disarm-only-rep-seqs-run2-filtered.qza \
-  --o-merged-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza
+  --i-data Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
+  --i-data Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
+  --o-merged-data Disarm-only-rep-seqs-both-runs-after-decontam.qza
 
 qiime feature-table tabulate-seqs \
-  --i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza \
-  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qzv
+  --i-data Disarm-only-rep-seqs-both-runs-after-decontam.qza \
+  --o-visualization Disarm-only-rep-seqs-both-runs-after-decontam.qzv
 
-#Removing singletons and low abundant taxa
+#Removing singletons and low abundant taxa features
 qiime feature-table filter-features \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered.qza \
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam.qza \
   --p-min-samples 2 \
   --p-min-frequency 10 \
-  --o-filtered-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza
+  --o-filtered-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency.qza
 
 #File "Disarm_Library_Prep_full_simplified_combined.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table summarize \
-  --i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
-  --m-sample-metadata-file Runs-combined/Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qzv
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency.qza \
+  --m-sample-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
+  --o-visualization RDisarm-only-samples-dada2-both-runs-after-decontam-contingency.qzv
 
 qiime feature-table filter-seqs \
---i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered.qza \
---i-table Runs-combined/Disarm-only-samples-dada2-both-runs-filtered-contingency.qza \
---o-filtered-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza
+--i-data Disarm-only-rep-seqs-both-runs-after-decontam.qza \
+--i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency.qza \
+--o-filtered-data Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qza
 
 qiime feature-table tabulate-seqs \
-  --i-data Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
-  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qzv
+  --i-data Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qza \
+  --o-visualization Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qzv
 
 qiime feature-classifier classify-sklearn \
-  --i-classifier Runs-combined/Silva132-classifier-my-primers-majority-v-0.22.1.qza \
-  --i-reads Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
+  --i-classifier Silva132-classifier-my-primers-majority-v-0.22.1.qza \
+  --i-reads Disarm-only-rep-seqs-both-runs-after-decontam-contingency.qza \
   --p-reads-per-batch 2000 \
-  --o-classification Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
+  --o-classification Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
   --verbose
 
 qiime metadata tabulate \
-  --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qza \
-  --o-visualization Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency-taxonomy.qzv
+  --m-input-file Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
+  --o-visualization Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qzv
 
 qiime metadata tabulate \
 --m-input-file Runs-combined/Disarm-only-rep-seqs-both-runs-filtered-contingency.qza \
