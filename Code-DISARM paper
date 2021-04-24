@@ -240,22 +240,22 @@ qiime taxa barplot \
 #File "Decontam-frequency-Batch2.txt" available in folder DISARM/Files_used_analysis/
 qiime feature-table filter-features \
 --i-table Disarm-only-samples-dada2-run1-filtered.qza \
---m-metadata-file Decontam-Run1/Decontam-frequency-Batch1.txt \
+--m-metadata-file Decontam-Run2/Decontam-frequency-Batch2.txt \
 --p-exclude-ids \
---o-filtered-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza
+--o-filtered-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza
 
 qiime feature-table summarize \
-  --i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qzv
+  --i-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
+  --o-visualization Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qzv
 
 qiime feature-table filter-seqs \
---i-data Disarm-only-rep-seqs-run1-filtered.qza \
---i-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
---o-filtered-data Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza
+--i-data Disarm-only-rep-seqs-run2-filtered.qza \
+--i-table Decontam-Run2/Disarm-only-samples-dada2-run2-filtered-after-decontam.qza \
+--o-filtered-data Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza
 
 qiime metadata tabulate \
-  --m-input-file Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
-  --o-visualization Decontam-Run1/Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
+  --m-input-file Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
+  --o-visualization Decontam-Run2/Disarm-only-rep-seqs-run2-filtered-after-decontam.qzv
 
 
 
