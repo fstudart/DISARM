@@ -6,7 +6,7 @@ SEQUENCING DATA COMES FROM TWO BATCHES:
 - BATCH 1: All samples collected at both time points were included in this batch, except for those related to Disarm participant 85 (who was randomized to the Formoterol arm). 
 For this participant, his samples collected during the first bronchoscopy visit were also included in batch 1. 
 
-- Batch 2: Contains all samples collected at second bronchocopy visit of Disarm participant 85. 
+- Batch 2: Contains all samples collected at the second bronchocopy visit of the Disarm participant 85. 
 
 QIIME2 VERSION USED IN THIS ANALSYS: 2020.2
 
@@ -110,9 +110,11 @@ qiime taxa barplot \
   --o-visualization Disarm-only-taxa-bar-plots-run1-filtered-Silva132.qzv
 
 #REMOVING ASVS IDENTIFIED AS POTENTIAL CONTAMINANTS ACCORDING TO THE DECONTAM R PACKAGE
+#File "Decontam-frequency-Batch1.txt" avaiable 
+
 qiime feature-table filter-features \
 --i-table Disarm-only-samples-dada2-run1-filtered.qza \
---m-metadata-file Decontam-Run1/Decontam-frequency.txt \
+--m-metadata-file Decontam-Run1/Decontam-frequency-Batch1 \
 --p-exclude-ids \
 --o-filtered-table Decontam-Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza
 
