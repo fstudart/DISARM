@@ -360,7 +360,2201 @@ qiime taxa barplot \
   --m-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
   --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contingency-phyla.qzv
 
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART III - TAXONOMIC ANALYSES
 
+rm(list=ls())
+library(phyloseq)
+library(ggplot2)
+library(cowplot)
+library(stringr)
+library(ape)
+library(tidyr)
+library(broom)
+library(dplyr)
+library(plyr)
+library(reshape2)
+library(doBy)
+library(RVAideMemoire)
+library(vegan)
+library(phangorn)
+library(RColorBrewer)
+library(gplots)
+library(kableExtra)
+library(gridExtra)
+library(knitr)
+library(plotly)
+library(ggpubr)
+library(data.table)
+library(survival)
+library(forcats)
+
+packageVersion('phyloseq')
+packageVersion('vegan')
+
+#Removing scientific notation
+options(scipen = 999)
+
+setwd("C:/Users/ferna/Desktop/R1-Disarm paper/Replication/Source_files")
+
+#####################################################################################Source files#############################################################################
+# Importing medatata
+metadata = read.csv(file="Disarm_metadata-V3-V7.txt", header=T, sep='\t')
+
+metadata = metadata[order(metadata$SampleID),]
+rownames(metadata) = NULL
+
+metadata$Treatment_Arm = as.factor(metadata$Treatment_Arm)
+
+metadata$ICS = as.factor(metadata$ICS)
+
+metadata$Visit = as.factor(metadata$Visit)
+
+#Checking metadata
+metadata %>%
+  group_by(Treatment_Arm, Visit) %>%
+  tally()
+
+#One bronchial brushing (320067-V7-BC [collected at V7] from the Formoterol arm was discarded due to low number of reads) 
+
+metadata %>%                       
+  group_by(ICS, Visit) %>%
+  tally()
+
+#Importing OTU table, map and tree files
+biom = import_biom("Disarm-table-with-taxonomy.biom")
+
+map = import_qiime_sample_data("Disarm_metadata-V3-V7.txt")
+rownames(map) = map$SampleID
+
+tree = read.tree("Disarm-tree-mafft.nwk")
+tree$tip.label = gsub("'", "", tree$tip.label, fixed = TRUE)
+tree$tip.label = gsub('"', '', tree$tip.label, fixed = TRUE)
+
+#Creating phyloseq object
+OTU = merge_phyloseq(biom,map,tree)
+OTU
+
+#Changing taxonomic ranks (Phyloseq object: OTU)
+colnames(tax_table(OTU))
+
+colnames(tax_table(OTU)) = c("Kingdom", "Phylum", "Class", 
+                              "Order", "Family", "Genus", "Species")
+
+OTU
+
+#Pre-Processing (Phyloseq object: OTU)
+OTU = prune_taxa(taxa_sums (OTU) > 0, OTU)
+
+OTU
+
+# Histogram of sample read counts (Phyloseq object: OTU)
+sample_sum_df = data.frame(sum = sample_sums(OTU))
+
+ggplot(sample_sum_df, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "indianred", binwidth = 500) +
+  ggtitle("Distribution of sample sequencing depth") + 
+  xlab("Read counts") +
+  theme(axis.title.y = element_blank())
+
+smin = min(sample_sums(OTU))
+smean = mean(sample_sums(OTU))
+smax = max(sample_sums(OTU))
+
+smin
+smean
+smax
+
+#Cleaning SILVA132 strings in taxonomy (Phyloseq object: OTU)
+tax.clean = data.frame(tax_table(OTU))
+tax.clean$Kingdom = str_replace(tax.clean$Kingdom, "D_0__","")
+tax.clean$Phylum = str_replace(tax.clean$Phylum, "D_1__","")
+tax.clean$Class = str_replace(tax.clean$Class, "D_2__","")
+tax.clean$Order = str_replace(tax.clean$Order, "D_3__","")
+tax.clean$Family = str_replace(tax.clean$Family, "D_4__","")
+tax.clean$Genus = str_replace(tax.clean$Genus, "D_5__","")
+tax.clean$Species = str_replace(tax.clean$Species, "D_6__","")
+tax_table(OTU) = as.matrix(tax.clean)
+
+#Exporting tax table with formatted NA genus taxonomic assignments
+tax.clean = data.frame(tax_table(OTU))
+
+#Changing all columns to characters 
+for (i in 1:7){ tax.clean[,i] = as.character(tax.clean[,i])}
+
+#Changing NA to empty strings
+tax.clean[is.na(tax.clean)] = ""
+
+#Fill missing taxonomy fields
+for (i in 1:nrow(tax.clean)){
+  if (tax.clean[i,2] == ""){
+    kingdom <- paste("Kingdom_", tax.clean[i,1], sep = "")
+    tax.clean[i, 2:7] <- kingdom
+  } else if (tax.clean[i,3] == ""){
+    phylum <- paste("Phylum_", tax.clean[i,2], sep = "")
+    tax.clean[i, 3:7] <- phylum
+  } else if (tax.clean[i,4] == ""){
+    class <- paste("Class_", tax.clean[i,3], sep = "")
+    tax.clean[i, 4:7] <- class
+  } else if (tax.clean[i,5] == ""){
+    order <- paste("Order_", tax.clean[i,4], sep = "")
+    tax.clean[i, 5:7] <- order
+  } else if (tax.clean[i,6] == ""){
+    family <- paste("Genus_unknown_Family_", tax.clean[i,5], sep = "")
+    tax.clean[i, 6:7] <- family
+  } else if (tax.clean[i,7] == ""){
+    tax.clean$Species[i] <- paste("Species_unknown_Genus_",tax.clean$Genus[i], sep = "")
+  }
+}
+
+#Returning tax dataframe to phyloseq object (OTU)
+tax_table(OTU) = as.matrix(tax.clean)
+
+#Checking Phyloseq object
+head(sample_names(OTU))
+sample_variables(OTU)
+get_taxa_unique(OTU, "Phylum")
+get_taxa_unique(OTU, "Genus")
+
+#Transform to relative abundances (Phyloseq object: OTU)
+OTU_RA = transform_sample_counts(OTU, function(x) x / sum(x))
+
+############################################################################################################################################################################
+##########################################Phylum analysis (Bronchoscopy samples from both visits - V3 and V7)###############################################################
+#Phylum analysis
+#Creating csv file (phyloseq object: OTU)
+OTU_taxa_phyla =  OTU %>%
+  tax_glom(taxrank = "Phylum") %>%                     # agglomerate at phylum level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Phylum)
+
+write.table(OTU_taxa_phyla, file = "Output-taxa-both-visits/V3-V7-OTU_taxa_phyla-raw.csv", 
+            sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by phylum (phyloseq object: OTU) 
+glom = tax_glom(OTU, taxrank = 'Phylum')
+glom_RA = transform_sample_counts(glom, function(x){x / sum(x)})
+
+dat = psmelt(glom)
+dat_RA = psmelt(glom_RA)
+
+#Calculating total number of reads per sample (phyloseq object: OTU) 
+phylum_graph_overall_reads = dat %>%
+  group_by(Sample) %>%
+  summarise (total_reads_patient  = sum(Abundance))
+
+phylum_graph_overall_reads = phylum_graph_overall_reads %>% arrange(desc(total_reads_patient))
+row.names(phylum_graph_overall_reads) = NULL 
+
+#Creating a merged dataframe according to phylum with mean and median relative abundances (phyloseq object: OTU) 
+median_phylum_overall = ddply(dat_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance)))
+median_phylum_overall$RA_median_phylum = median_phylum_overall$RA_median_phylum *100
+median_phylum_overall  = median_phylum_overall %>% arrange(desc(RA_median_phylum))
+median_phylum_top5_overall = median_phylum_overall [c(1:5),]
+
+#Creating a factor for ordering phylum in descending order 
+List_phylum = as.character(median_phylum_top5_overall$Phylum)
+
+#############################################################Phylum-V3 (Randomization Arm)#################################################################################
+OTU_V3 = subset_samples(OTU, Visit=="V3")
+OTU_V3 = prune_taxa(taxa_sums (OTU_V3) > 0, OTU_V3)
+OTU_V3
+
+smin = min(sample_sums(OTU_V3))
+smean = mean(sample_sums(OTU_V3))
+smax = max(sample_sums(OTU_V3))
+
+smin
+smean
+smax
+
+#Creating csv file (phyloseq object: OTU_V3) 
+OTU_taxa_phyla_V3 =  OTU_V3 %>%
+  tax_glom(taxrank = "Phylum") %>%                      # agglomerate at phylum level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>%  # Transform to rel. abundance
+  psmelt() %>%                                          # Melt to long format
+  arrange(Phylum)
+
+write.table(OTU_taxa_phyla_V3, file = "Output-taxa-V3/V3-OTU_taxa_phyla-raw.csv", sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by phylum (phyloseq object: OTU_V3) 
+glom_V3 = tax_glom(OTU_V3, taxrank = 'Phylum')
+glom_V3_RA = transform_sample_counts(glom_V3, function(x){x / sum(x)})
+
+dat_V3 = psmelt(glom_V3)
+dat_V3_RA = psmelt(glom_V3_RA)
+
+dat_V3  = dat_V3 [,-2]
+dat_V3_RA = dat_V3_RA [,-2]
+
+dat_V3 = dat_V3 %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Phylum, Treatment_Arm, ICS, everything())
+
+dat_V3_RA = dat_V3_RA %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Phylum, Treatment_Arm, ICS, everything())
+
+#Changing low abundant taxa to "Others" (phyloseq object: OTU_V3) 
+dat_V3[!dat_V3$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V3_RA[!dat_V3_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+ggplot(dat_V3_RA,
+       aes(x=Phylum,
+           y=Abundance)) + geom_boxplot() + coord_flip()
+
+#Exporting OTU tables with "Others" category (OTU_V3)
+write.table(dat_V3, file = "Output-taxa-V3/V3-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+write.table(dat_V3_RA, file = "Output-taxa-V3/V3-RA-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+
+#Creating a merged dataframe by phylum with mean/median relative abundances and IQR (phyloseq object: OTU_V3) 
+median_phylum_V3 = ddply(dat_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                            IQR=IQR(x$Abundance)))
+
+median_phylum_V3$RA_median_phylum = median_phylum_V3$RA_median_phylum *100
+median_phylum_V3$IQR = median_phylum_V3$IQR *100
+median_phylum_V3  = median_phylum_V3 %>% arrange(desc(RA_median_phylum))
+
+phylum_graph_V3 = dat_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+phylum_graph_V3 = phylum_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+phylum_graph_V3 = phylum_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+phylum_graph_V3 = merge (phylum_graph_V3, median_phylum_V3, by="Phylum")
+phylum_graph_V3 = arrange(phylum_graph_V3, desc(RA_median_phylum))
+row.names(phylum_graph_V3) = NULL
+
+phylum_graph_V3_export = phylum_graph_V3 [,-c(3,4)]
+colnames (phylum_graph_V3_export) = c("Phylum", "Total Reads", "RA-Mean", "RA-Median", "IQR")
+
+is.num = sapply(phylum_graph_V3_export, is.numeric)
+phylum_graph_V3_export [is.num] = lapply(phylum_graph_V3_export [is.num], round, 2)
+
+kable(phylum_graph_V3_export) %>%
+  kable_styling(fixed_thead = T)
+
+kable(phylum_graph_V3_export) %>%
+  kable_styling(fixed_thead = T) %>%
+  save_kable(file = "Output-taxa-V3/V3-All-samples-phylum-merged-table.html", self_contained = T)
+
+#Creating factors for plots
+order_phylum = factor(phylum_graph_V3$Phylum, levels = phylum_graph_V3$Phylum)
+
+dat_V3_RA$Phylum = as.factor(dat_V3_RA$Phylum)
+dat_V3_RA$Phylum = factor(dat_V3_RA$Phylum, levels = order_phylum)
+
+seq_group_arm = factor(dat_V3_RA$Treatment_Arm)
+seq_group_ics = factor(dat_V3_RA$ICS)
+
+#Creating a merged dataframe for plots according to the Randomization Arm
+Arm_V3 = merge_samples(OTU_V3, "Treatment_Arm")
+Arm_V3 = prune_taxa(taxa_sums (Arm_V3) > 0, Arm_V3)
+Arm_V3
+
+glom_V3_arm = tax_glom (Arm_V3, taxrank = 'Phylum')
+glom_V3_arm_RA = transform_sample_counts (glom_V3_arm, function(x){x / sum(x)})
+
+dat_V3_arm = psmelt (glom_V3_arm)
+dat_V3_arm_RA = psmelt (glom_V3_arm_RA)
+
+dat_V3_arm = dat_V3_arm %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V3_arm)[1] = "Group"
+
+dat_V3_arm_RA = dat_V3_arm_RA %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V3_arm_RA)[1] = "Group"
+
+dat_V3_arm[!dat_V3_arm$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V3_arm_RA[!dat_V3_arm_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+#Reordering factors for plots
+dat_V3_arm_RA$Group = as.factor (dat_V3_arm_RA$Group)
+dat_V3_arm_RA$Phylum = as.factor(dat_V3_arm_RA$Phylum)
+dat_V3_arm_RA$Phylum = factor(dat_V3_arm_RA$Phylum, levels = order_phylum)
+
+#Creating customized color palettes for phylum analyses
+cbPalette_phylum = c("#00BFC4", "#E7B800", "#FC4E07", "#0073C2FF", "#CBD588", "black")  
+
+#Making merged plots - V3 (Randomization group vs. Phylum)
+metadata_V3 = metadata %>%
+  filter(Visit == "V3") %>%
+  droplevels()
+
+xlabs = paste(levels(metadata_V3$Treatment_Arm),"\n(N=",
+               table(metadata_V3$Treatment_Arm),")",sep="")
+
+p = ggplot(dat_V3_arm_RA, aes(fill=Phylum, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Phylum Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_phylum) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Phylum") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V3/V3-Arm-phylum-3groups.png",
+       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to the Randomization Arm
+#Flu + Salm (V3) - Phylum
+Adv_V3 = dat_V3 %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_V3_RA = dat_V3_RA %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_V3_median = ddply(Adv_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                            IQR=IQR(x$Abundance)))
+
+Adv_V3_median$RA_median_phylum = Adv_V3_median$RA_median_phylum *100
+Adv_V3_median$IQR = Adv_V3_median$IQR *100
+Adv_V3_median$Phylum = factor(Adv_V3_median$Phylum, levels = order_phylum)
+Adv_V3_median = Adv_V3_median[-6,]
+
+Adv_graph_V3 =  Adv_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Adv_graph_V3 = Adv_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Adv_graph_V3 = Adv_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Adv_graph_V3 = merge (Adv_graph_V3, Adv_V3_median, by="Phylum")
+Adv_graph_V3$Phylum = factor(Adv_graph_V3$Phylum , levels = order_phylum)
+row.names(Adv_graph_V3) = NULL
+
+Adv_graph_V3$Group = as.factor("Flu + Salm")
+
+Adv_graph_V3 = Adv_graph_V3 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Adv_graph_V3 = Adv_graph_V3 %>%
+  slice(match(order_phylum, Phylum))
+
+#Bud + Form (V3) - Phylum
+Symb_V3 = dat_V3 %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_V3_RA = dat_V3_RA %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_V3_median = ddply(Symb_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+Symb_V3_median$RA_median_phylum = Symb_V3_median$RA_median_phylum *100
+Symb_V3_median$IQR = Symb_V3_median$IQR *100
+Symb_V3_median$Phylum = factor(Symb_V3_median$Phylum, levels = order_phylum)
+Symb_V3_median  =Symb_V3_median [-6,]
+
+Symb_graph_V3 =  Symb_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Symb_graph_V3 = Symb_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Symb_graph_V3 = Symb_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Symb_graph_V3 = merge (Symb_graph_V3, Symb_V3_median, by="Phylum")
+Symb_graph_V3$Phylum = factor(Symb_graph_V3$Phylum, levels = order_phylum)
+row.names(Symb_graph_V3) = NULL
+
+Symb_graph_V3$Group = as.factor("Flu + Salm")
+
+Symb_graph_V3 = Symb_graph_V3 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Symb_graph_V3  = Symb_graph_V3  %>%
+  slice(match(order_phylum, Phylum))
+
+#Form (V3) - Phylum
+Oxeze_V3 = dat_V3 %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_V3_RA = dat_V3_RA %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_V3_median = ddply(Oxeze_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                             IQR=IQR(x$Abundance)))
+
+Oxeze_V3_median$RA_median_phylum = Oxeze_V3_median$RA_median_phylum *100
+Oxeze_V3_median$IQR = Oxeze_V3_median$IQR *100
+Oxeze_V3_median$Phylum = factor(Oxeze_V3_median$Phylum, levels = order_phylum)
+Oxeze_V3_median = Oxeze_V3_median [-6,]
+
+Oxeze_graph_V3 =  Oxeze_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Oxeze_graph_V3 = Oxeze_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Oxeze_graph_V3 = Oxeze_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Oxeze_graph_V3 = merge (Oxeze_graph_V3, Oxeze_V3_median, by="Phylum")
+Oxeze_graph_V3$Phylum = factor(Oxeze_graph_V3$Phylum, levels = order_phylum)
+row.names(Oxeze_graph_V3) = NULL
+
+Oxeze_graph_V3$Group = as.factor("Form")
+
+Oxeze_graph_V3 = Oxeze_graph_V3 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Oxeze_graph_V3  = Oxeze_graph_V3  %>%
+  slice(match(order_phylum, Phylum))
+
+#Table Phylum - V3 (Randomization Arm)
+Table_V3_Arm = cbind (Symb_graph_V3 [,c(2,3,4,5)], Adv_graph_V3 [,c(3,4,5)], Oxeze_graph_V3 [,c(3,4,5)])
+colnames (Table_V3_Arm) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V3_Arm, is.numeric)
+Table_V3_Arm [is.num] = lapply(Table_V3_Arm [is.num], round, 2)
+
+kable(Table_V3_Arm) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V3_Arm) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  save_kable(file = "Output-taxa-V3/Phylum-V3-table-Arm.html", self_contained = T)
+
+#Comparing Randomization Arm versus Phylum 
+RANK = 'Phylum'
+
+dat_V3_RA_1 = dat_V3_RA %>%
+  filter(Phylum!= "Others") %>%
+  select ('SampleID', 'Treatment_Arm', 'ICS', 'Phylum', 'Abundance')
+
+V3_arm_kw_phylum = dat_V3_RA_1 %>% 
+  group_by(Phylum) %>% 
+  do(tidy(kruskal.test(x= .$Abundance, g = .$Treatment_Arm, exact))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V3_arm_kw_phylum
+
+V3_arm_kw_phylum = V3_arm_kw_phylum [c(1,5,4,2,3,6)]
+
+V3_arm_kw_phylum = V3_arm_kw_phylum %>%
+  slice(match(order_phylum, Phylum))
+
+V3_arm_kw_phylum %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V3_arm_kw_phylum, file = "Output-taxa-V3/V3_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
+
+########################################################################Phylum-V3 (ICS status)###############################################################################
+#Creating a merged dataframe for plots according to ICS status
+ICS_status_V3 = merge_samples(OTU_V3, "ICS")
+ICS_status_V3 = prune_taxa(taxa_sums (ICS_status_V3) > 0, ICS_status_V3)
+ICS_status_V3
+
+glom_V3_ics = tax_glom(ICS_status_V3, taxrank = 'Phylum')
+glom_V3_ics_RA = transform_sample_counts(glom_V3_ics, function(x){x / sum(x)})
+
+dat_V3_ics = psmelt(glom_V3_ics)
+dat_V3_ics_RA = psmelt(glom_V3_ics_RA)
+
+dat_V3_ics = dat_V3_ics %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V3_ics)[1] = "Group"
+
+dat_V3_ics_RA = dat_V3_ics_RA %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V3_ics_RA)[1] = "Group"
+
+dat_V3_ics[!dat_V3_ics$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V3_ics_RA[!dat_V3_ics_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+##Reordering factors for plots
+dat_V3_ics_RA$Group = as.factor (dat_V3_ics_RA$Group)
+dat_V3_ics_RA$Phylum = factor(dat_V3_ics_RA$Phylum, levels = order_phylum)
+
+#Making merged plots - V3 (ICS status vs. Phylum)
+xlabs = paste(levels(metadata_V3$ICS),"\n(N=",
+               table(metadata_V3$ICS),")",sep="")
+
+p = ggplot(dat_V3_ics_RA, aes(fill=Phylum, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Phylum Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_phylum) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Phylum") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V3/V3-ics-phylum-2groups.png",
+       width = 7.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to ICS status
+#ICS (V3) - Phylum
+ICS_V3 = dat_V3 %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_V3_RA = dat_V3_RA %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_V3_median = ddply(ICS_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                         IQR=IQR(x$Abundance)))
+
+ICS_V3_median$RA_median_phylum = ICS_V3_median$RA_median_phylum *100
+ICS_V3_median$IQR = ICS_V3_median$IQR *100
+ICS_V3_median$Phylum = factor(ICS_V3_median$Phylum, levels = order_phylum)
+ICS_V3_median = ICS_V3_median [-6,]
+
+ICS_graph_V3 =  ICS_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+ICS_graph_V3 = ICS_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+ICS_graph_V3 = ICS_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+ICS_graph_V3 = merge (ICS_graph_V3, ICS_V3_median, by="Phylum")
+ICS_graph_V3$Phylum = factor(ICS_graph_V3$Phylum, levels = order_phylum)
+row.names(ICS_graph_V3) = NULL
+
+ICS_graph_V3$Group = as.factor("ICS")
+
+ICS_graph_V3 = ICS_graph_V3 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+ICS_graph_V3  = ICS_graph_V3  %>%
+  slice(match(order_phylum, Phylum))
+
+#Non-ICS (V3) - Phylum
+Non_ICS_V3 = dat_V3 %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_V3_RA = dat_V3_RA %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_V3_median = ddply(Non_ICS_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                                 IQR=IQR(x$Abundance)))
+
+Non_ICS_V3_median$RA_median_phylum = Non_ICS_V3_median$RA_median_phylum *100
+Non_ICS_V3_median$IQR = Non_ICS_V3_median$IQR *100
+Non_ICS_V3_median$Phylum = factor(Non_ICS_V3_median$Phylum, levels = order_phylum)
+Non_ICS_V3_median = Non_ICS_V3_median [-6,]
+
+Non_ICS_graph_V3 =  Non_ICS_V3 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Non_ICS_graph_V3 = merge (Non_ICS_graph_V3, Non_ICS_V3_median, by="Phylum")
+Non_ICS_graph_V3$Phylum = factor(Non_ICS_graph_V3$Phylum, levels = order_phylum)
+row.names(Non_ICS_graph_V3) = NULL
+
+Non_ICS_graph_V3$Group = as.factor("Non-ICS")
+
+Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Non_ICS_graph_V3  = Non_ICS_graph_V3  %>%
+  slice(match(order_phylum, Phylum))
+
+#Table Phylum - V3 (ICS status)
+Table_V3_ICS = cbind (ICS_graph_V3 [,c(2,3,4,5)], Non_ICS_graph_V3 [,c(3,4,5)])
+colnames (Table_V3_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V3_ICS, is.numeric)
+Table_V3_ICS [is.num] = lapply(Table_V3_ICS [is.num], round, 2)
+
+kable(Table_V3_ICS) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V3_ICS) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  save_kable(file = "Output-taxa-V3/Phylum-V3-table-ICS.html", self_contained = T)
+
+#Comparing ICS status versus Phylum 
+RANK = 'Phylum'
+
+dat_V3_RA_1 %>%
+  group_by_(RANK) %>%
+  do(tidy(wilcox.test (Abundance ~ ICS, data=., exact=F))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V3_ics_wilcoxon_phylum
+
+V3_ics_wilcoxon_phylum = V3_ics_wilcoxon_phylum [c(1,4,5,2,3,6)]
+
+V3_ics_wilcoxon_phylum = V3_ics_wilcoxon_phylum %>%
+  slice(match(order_phylum, Phylum))
+
+V3_ics_wilcoxon_phylum %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V3_ics_wilcoxon_phylum, file = "Output-taxa-V3/V3_ics_phylum.results.csv", sep = ",", 
+            qmethod = "double", row.names=FALSE)
+
+#############################################################################################################################################################################
+#########################################Genus analysis (Bronchoscopy samples from both visits - V3 and V7)##################################################################
+#Genus analysis
+#Creating csv file (phyloseq object: OTU)
+OTU_taxa_genus =  OTU %>%
+  tax_glom(taxrank = "Genus") %>%                      # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Genus)
+
+write.table(OTU_taxa_genus, file = "Output-taxa-both-visits/V3-V7-OTU_taxa_genus-raw.csv", 
+            sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by genus (phyloseq object: OTU) 
+glom_g = tax_glom (OTU, taxrank = 'Genus')
+glom_g_RA = transform_sample_counts (glom_g, function(x){x / sum(x)})
+
+dat_g = psmelt(glom_g)
+dat_g_RA = psmelt(glom_g_RA)
+
+#Calculating total number of reads per sample (phyloseq object: OTU) 
+genus_graph_overall_reads = dat_g %>%
+  group_by(Sample) %>%
+  summarise (total_reads_patient  = sum(Abundance))
+
+genus_graph_overall_reads = genus_graph_overall_reads %>% arrange(desc(total_reads_patient))
+row.names(genus_graph_overall_reads) = NULL 
+
+#Creating a merged dataframe by genus according to genus with mean and median relative abundances (phyloseq object: OTU) 
+median_genus_overall = ddply(dat_g_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance)))
+median_genus_overall$RA_median_genus = median_genus_overall$RA_median_genus *100
+median_genus_overall  = median_genus_overall %>% arrange(desc(RA_median_genus))
+median_genus_top15_overall = median_genus_overall [c(1:15),]
+
+#Creating a factor for ordering genus in descending order 
+List_genus = as.character(median_genus_top15_overall$Genus)
+
+#############################################################Genus-V3 (Randomization Arm)#################################################################################
+#Creating csv file (phyloseq object: OTU_V3) 
+OTU_taxa_genus_V3 =  OTU_V3 %>%
+  tax_glom(taxrank = "Genus") %>%                       # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>%  # Transform to rel. abundance
+  psmelt() %>%                                          # Melt to long format
+  arrange(Genus)
+
+write.table(OTU_taxa_genus_V3, file = "Output-taxa-V3/V3-OTU_taxa_genus-raw.csv", sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by genus (phyloseq object: OTU_V3) 
+glom_g_V3 = tax_glom (OTU_V3, taxrank = 'Genus')
+glom_g_V3_RA = transform_sample_counts(glom_g_V3, function(x){x / sum(x)})
+
+dat_g_V3 = psmelt(glom_g_V3)
+dat_g_V3_RA = psmelt(glom_g_V3_RA)
+
+dat_g_V3  = dat_g_V3 [,-2]
+dat_g_V3_RA = dat_g_V3_RA [,-2]
+
+dat_g_V3 = dat_g_V3 %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Genus, Treatment_Arm, ICS, everything())
+
+dat_g_V3_RA = dat_g_V3_RA %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Genus, Treatment_Arm, ICS, everything())
+
+#Changing low abundant taxa to "Others" (phyloseq object: OTU_V3) 
+dat_g_V3[!dat_g_V3$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V3_RA[!dat_g_V3_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+ggplot(dat_g_V3_RA,
+       aes(x=Genus,
+           y=Abundance)) + geom_boxplot() + coord_flip()
+
+#Exporting OTU tables with absolute counts and relative abundances with "Others" category (OTU_V3)
+write.table(dat_V3, file = "Output-taxa-V3/V3-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+write.table(dat_V3_RA, file = "Output-taxa-V3/V3-RA-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+
+#Creating a merged dataframe according to genus with mean/median relative abundances and IQR (phyloseq object: OTU_V3) 
+median_genus_V3 = ddply(dat_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+median_genus_V3$RA_median_genus = median_genus_V3$RA_median_genus *100
+median_genus_V3$IQR = median_genus_V3$IQR *100
+median_genus_V3  = median_genus_V3 %>% arrange(desc(RA_median_genus))
+
+genus_graph_V3 = dat_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+genus_graph_V3 = genus_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+genus_graph_V3 = genus_graph_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+genus_graph_V3 = merge (genus_graph_V3, median_genus_V3, by="Genus")
+genus_graph_V3 = arrange(genus_graph_V3, desc(RA_mean_genus))
+genus_graph_V3 = genus_graph_V3 %>%
+  slice(2,3:16,1)
+row.names(genus_graph_V3) = NULL
+
+genus_graph_V3_export = genus_graph_V3 [,-c(3,4)]
+colnames (genus_graph_V3_export) = c("Genus", "Total Reads", "RA-Mean", "RA-Median", "IQR")
+
+is.num = sapply(genus_graph_V3_export, is.numeric)
+genus_graph_V3_export [is.num] = lapply(genus_graph_V3_export [is.num], round, 2)
+
+kable(genus_graph_V3_export) %>%
+  kable_styling(fixed_thead = T)
+
+kable(genus_graph_V3_export) %>%
+  kable_styling(fixed_thead = T) %>%
+  save_kable(file = "Output-taxa-V3/V3-All-samples-genus-merged-table.html", self_contained = T)
+
+#Creating factors for plots
+order_genus = factor(genus_graph_V3$Genus, levels = genus_graph_V3$Genus)
+dat_g_V3_RA$Genus = as.factor(dat_g_V3_RA$Genus)
+dat_g_V3_RA$Genus = factor(dat_g_V3_RA$Genus, levels = order_genus)
+
+#Creating a merged dataframe for plots according to the Randomization Arm
+glom_g_V3_arm = tax_glom (Arm_V3, taxrank = 'Genus')
+glom_g_V3_arm_RA = transform_sample_counts(glom_g_V3_arm, function(x){x / sum(x)})
+
+dat_g_V3_arm = psmelt (glom_g_V3_arm)
+dat_g_V3_arm_RA = psmelt(glom_g_V3_arm_RA)
+
+dat_g_V3_arm = dat_g_V3_arm %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V3_arm)[1] = "Group"
+
+dat_g_V3_arm_RA = dat_g_V3_arm_RA %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V3_arm_RA)[1] = "Group"
+
+dat_g_V3_arm[!dat_g_V3_arm$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V3_arm_RA[!dat_g_V3_arm_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+#Reordering factors for plots
+dat_g_V3_arm_RA$Group = as.factor (dat_g_V3_arm_RA$Group)
+dat_g_V3_arm_RA$Genus = as.factor(dat_g_V3_arm_RA$Genus)
+dat_g_V3_arm_RA$Genus = factor(dat_g_V3_arm_RA$Genus, levels = order_genus)
+
+#Creating customized color palettes for genus analyses
+cbPalette_genus <- c("#00BFC4", "#E7B800", "#FC4E07", "#0073C2FF", "#CBD588", "#999999",
+                 "#C77CFF", "#5F7FC7", "#DA5724", "#508578", "darkred",
+                 "#AD6F3B", "cornflowerblue","deeppink", "khaki", "black")
+
+#Making merged plots - V3 (Randomization group vs. Genus)
+xlabs = paste(levels(metadata_V3$Treatment_Arm),"\n(N=",
+              table(metadata_V3$Treatment_Arm),")",sep="")
+
+p = ggplot(dat_g_V3_arm_RA, aes(fill=Genus, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Genus Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_genus) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Genus") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V3/V3-Arm-genus-3groups.png",
+       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to the Randomization Arm
+#Flu + Salm (V3) - Genus
+Adv_g_V3 = dat_g_V3 %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_g_V3_RA = dat_g_V3_RA %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_g_V3_median = ddply(Adv_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                        IQR=IQR(x$Abundance)))
+
+Adv_g_V3_median$RA_median_genus = Adv_g_V3_median$RA_median_genus *100
+Adv_g_V3_median$IQR = Adv_g_V3_median$IQR *100
+Adv_g_V3_median$Genus = factor(Adv_g_V3_median$Genus, levels = order_genus)
+Adv_g_V3_median = Adv_g_V3_median[-6,]
+
+Adv_graph_g_V3 =  Adv_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Adv_graph_g_V3 = merge (Adv_graph_g_V3, Adv_g_V3_median, by="Genus")
+Adv_graph_g_V3$Genus = factor(Adv_graph_g_V3$Genus , levels = order_genus)
+row.names(Adv_graph_g_V3) = NULL
+
+Adv_graph_g_V3$Group = as.factor("Flu + Salm")
+
+Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+  slice(match(order_genus, Genus))
+
+#Bud + Form (V3) - Genus
+Symb_g_V3 = dat_g_V3 %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_g_V3_RA = dat_g_V3_RA %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_g_V3_median = ddply(Symb_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                             IQR=IQR(x$Abundance)))
+
+Symb_g_V3_median$RA_median_genus = Symb_g_V3_median$RA_median_genus *100
+Symb_g_V3_median$IQR = Symb_g_V3_median$IQR *100
+Symb_g_V3_median$Genus = factor(Symb_g_V3_median$Genus, levels = order_genus)
+Symb_g_V3_median = Symb_g_V3_median[-6,]
+
+Symb_graph_g_V3 =  Symb_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Symb_graph_g_V3 = merge (Symb_graph_g_V3, Symb_g_V3_median, by="Genus")
+Symb_graph_g_V3$Genus = factor(Symb_graph_g_V3$Genus , levels = order_genus)
+row.names(Symb_graph_g_V3) = NULL
+
+Symb_graph_g_V3$Group = as.factor("Bud + Form")
+
+Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+  slice(match(order_genus, Genus))
+
+#Form (V3) - Genus
+Oxeze_g_V3 = dat_g_V3 %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_g_V3_RA = dat_g_V3_RA %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_g_V3_median = ddply(Oxeze_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                               IQR=IQR(x$Abundance)))
+
+Oxeze_g_V3_median$RA_median_genus = Oxeze_g_V3_median$RA_median_genus *100
+Oxeze_g_V3_median$IQR = Oxeze_g_V3_median$IQR *100
+Oxeze_g_V3_median$Genus = factor(Oxeze_g_V3_median$Genus, levels = order_genus)
+Oxeze_g_V3_median = Oxeze_g_V3_median[-6,]
+
+Oxeze_graph_g_V3 =  Oxeze_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Oxeze_graph_g_V3 = merge (Oxeze_graph_g_V3, Oxeze_g_V3_median, by="Genus")
+Oxeze_graph_g_V3$Genus = factor(Oxeze_graph_g_V3$Genus , levels = order_genus)
+row.names(Oxeze_graph_g_V3) = NULL
+
+Oxeze_graph_g_V3$Group = as.factor("Form")
+
+Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+  slice(match(order_genus, Genus))
+
+#Table Genus - V3 (Randomization Arm)
+Table_V3_g_Arm = cbind (Symb_graph_g_V3 [,c(2,3,4,5)], Adv_graph_g_V3 [,c(3,4,5)], Oxeze_graph_g_V3 [,c(3,4,5)])
+colnames (Table_V3_g_Arm) = c("Genus", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V3_g_Arm, is.numeric)
+Table_V3_g_Arm [is.num] = lapply(Table_V3_g_Arm [is.num], round, 2)
+
+kable(Table_V3_g_Arm) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V3_g_Arm) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  save_kable(file = "Output-taxa-V3/Genus-V3-table-Arm.html", self_contained = T)
+
+#Comparing Randomization Arm versus Genus 
+RANK = 'Genus'
+
+dat_g_V3_RA_1 = dat_g_V3_RA %>%
+  filter(Genus!= "Others") %>%
+  select ('SampleID', 'Treatment_Arm', 'ICS', 'Genus', 'Abundance')
+
+V3_arm_kw_genus = dat_g_V3_RA_1 %>% 
+  group_by(Genus) %>% 
+  do(tidy(kruskal.test(x= .$Abundance, g = .$Treatment_Arm, exact))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V3_arm_kw_genus
+
+V3_arm_kw_genus = V3_arm_kw_genus [c(1,5,4,2,3,6)]
+
+V3_arm_kw_genus = V3_arm_kw_genus %>%
+  slice(match(order_genus, Genus))
+
+V3_arm_kw_genus %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V3_arm_kw_genus, file = "Output-taxa-V3/V3_arm_genus.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
+
+########################################################################Genus-V3 (ICS status)###############################################################################
+#Creating a merged dataframe for plots according to ICS status
+glom_g_V3_ics = tax_glom (ICS_status_V3, taxrank = 'Genus')
+glom_g_V3_ics_RA = transform_sample_counts (glom_g_V3_ics, function(x){x / sum(x)})
+
+dat_g_V3_ics = psmelt(glom_g_V3_ics)
+dat_g_V3_ics_RA = psmelt(glom_g_V3_ics_RA)
+
+dat_g_V3_ics = dat_g_V3_ics %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V3_ics)[1] = "Group"
+
+dat_g_V3_ics_RA = dat_g_V3_ics_RA %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V3_ics_RA)[1] = "Group"
+
+dat_g_V3_ics[!dat_g_V3_ics$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V3_ics_RA[!dat_g_V3_ics_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+##Reordering factors for plots
+dat_g_V3_ics_RA$Group = as.factor (dat_g_V3_ics_RA$Group)
+dat_g_V3_ics_RA$Genus = factor(dat_g_V3_ics_RA$Genus, levels = order_genus)
+
+#Making merged plots - V3 (ICS status vs. Genus)
+xlabs = paste(levels(metadata_V3$ICS),"\n(N=",
+              table(metadata_V3$ICS),")",sep="")
+
+p = ggplot(dat_g_V3_ics_RA, aes(fill=Genus, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Genus Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_genus) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Genus") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V3/V3-ics-genus-2groups.png",
+       width = 7.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to ICS status
+#ICS (V3) - Genus
+ICS_g_V3 = dat_g_V3 %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_g_V3_RA = dat_g_V3_RA %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_g_V3_median = ddply(ICS_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                        IQR=IQR(x$Abundance)))
+
+ICS_g_V3_median$RA_median_genus = ICS_g_V3_median$RA_median_genus *100
+ICS_g_V3_median$IQR = ICS_g_V3_median$IQR *100
+ICS_g_V3_median$Genus = factor(ICS_g_V3_median$Genus, levels = order_genus)
+ICS_g_V3_median = ICS_g_V3_median [-6,]
+
+ICS_g_graph_V3 =  ICS_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+ICS_g_graph_V3 = ICS_g_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+ICS_g_graph_V3 = ICS_g_graph_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+ICS_g_graph_V3 = merge (ICS_g_graph_V3, ICS_g_V3_median, by="Genus")
+ICS_g_graph_V3$Genus = factor(ICS_g_graph_V3$Genus, levels = order_genus)
+row.names(ICS_g_graph_V3) = NULL
+
+ICS_g_graph_V3$Group = as.factor("ICS")
+
+ICS_g_graph_V3 = ICS_g_graph_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+ICS_g_graph_V3  = ICS_g_graph_V3  %>%
+  slice(match(order_genus, Genus))
+
+#Non-ICS (V3) - Genus
+Non_ICS_g_V3 = dat_g_V3 %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_g_V3_RA = dat_g_V3_RA %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_g_V3_median = ddply(Non_ICS_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                                   IQR=IQR(x$Abundance)))
+
+Non_ICS_g_V3_median$RA_median_genus = Non_ICS_g_V3_median$RA_median_genus *100
+Non_ICS_g_V3_median$IQR = Non_ICS_g_V3_median$IQR *100
+Non_ICS_g_V3_median$Genus = factor(Non_ICS_g_V3_median$Genus, levels = order_genus)
+Non_ICS_g_V3_median = Non_ICS_g_V3_median [-6,]
+
+Non_ICS_g_graph_V3 =  Non_ICS_g_V3 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Non_ICS_g_graph_V3 = merge (Non_ICS_g_graph_V3, Non_ICS_g_V3_median, by="Genus")
+Non_ICS_g_graph_V3$Genus = factor(Non_ICS_g_graph_V3$Genus, levels = order_genus)
+row.names(Non_ICS_g_graph_V3) = NULL
+
+Non_ICS_g_graph_V3$Group = as.factor("Non-ICS")
+
+Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Non_ICS_g_graph_V3  = Non_ICS_g_graph_V3  %>%
+  slice(match(order_genus, Genus))
+
+#Table Genus - V3 (ICS status)
+Table_V3_g_ICS = cbind (ICS_g_graph_V3 [,c(2,3,4,5)], Non_ICS_g_graph_V3 [,c(3,4,5)])
+colnames (Table_V3_g_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V3_g_ICS, is.numeric)
+Table_V3_g_ICS [is.num] = lapply(Table_V3_g_ICS [is.num], round, 2)
+
+kable(Table_V3_g_ICS) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V3_g_ICS) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  save_kable(file = "Output-taxa-V3/Genus-V3-table-ICS.html", self_contained = T)
+
+#Comparing ICS status versus Genus 
+RANK = 'Genus'
+
+dat_g_V3_RA_1 %>%
+  group_by_(RANK) %>%
+  do(tidy(wilcox.test (Abundance ~ ICS, data=., exact=F))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V3_ics_wilcoxon_genus
+
+V3_ics_wilcoxon_genus = V3_ics_wilcoxon_genus [c(1,4,5,2,3,6)]
+
+V3_ics_wilcoxon_genus = V3_ics_wilcoxon_genus %>%
+  slice(match(order_genus, Genus))
+
+V3_ics_wilcoxon_genus %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V3_ics_wilcoxon_genus, file = "Output-taxa-V3/V3_ics_genus.results.csv", sep = ",", 
+            qmethod = "double", row.names=FALSE)
+
+#############################################################Phylum-V7 (Randomization Arm)#################################################################################
+OTU_V7 = subset_samples(OTU, Visit=="V7")
+OTU_V7 = prune_taxa(taxa_sums (OTU_V7) > 0, OTU_V7)
+OTU_V7
+
+smin = min(sample_sums(OTU_V7))
+smean = mean(sample_sums(OTU_V7))
+smax = max(sample_sums(OTU_V7))
+
+smin
+smean
+smax
+
+#Creating csv file (phyloseq object: OTU_V7) 
+OTU_taxa_phyla_V7 =  OTU_V7 %>%
+  tax_glom(taxrank = "Phylum") %>%                      # agglomerate at phylum level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>%  # Transform to rel. abundance
+  psmelt() %>%                                          # Melt to long format
+  arrange(Phylum)
+
+write.table(OTU_taxa_phyla_V7, file = "Output-taxa-V7/V7-OTU_taxa_phyla-raw.csv", sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by phylum (phyloseq object: OTU_V7) 
+glom_V7 = tax_glom(OTU_V7, taxrank = 'Phylum')
+glom_V7_RA = transform_sample_counts(glom_V7, function(x){x / sum(x)})
+
+dat_V7 = psmelt(glom_V7)
+dat_V7_RA = psmelt(glom_V7_RA)
+
+dat_V7  = dat_V7 [,-2]
+dat_V7_RA = dat_V7_RA [,-2]
+
+dat_V7 = dat_V7 %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Phylum, Treatment_Arm, ICS, everything())
+
+dat_V7_RA = dat_V7_RA %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Phylum, Treatment_Arm, ICS, everything())
+
+#Changing low abundant taxa to "Others" (phyloseq object: OTU_V7) 
+dat_V7[!dat_V7$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V7_RA[!dat_V7_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+ggplot(dat_V7_RA,
+       aes(x=Phylum,
+           y=Abundance)) + geom_boxplot() + coord_flip()
+
+#Exporting OTU tables with "Others" category (OTU_V7)
+write.table(dat_V7, file = "Output-taxa-V7/V7-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+write.table(dat_V7_RA, file = "Output-taxa-V7/V7-RA-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+
+#Creating a merged dataframe by phylum with mean/median relative abundances and IQR (phyloseq object: OTU_V7) 
+median_phylum_V7 = ddply(dat_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+median_phylum_V7$RA_median_phylum = median_phylum_V7$RA_median_phylum *100
+median_phylum_V7$IQR = median_phylum_V7$IQR *100
+median_phylum_V7  = median_phylum_V7 %>% arrange(desc(RA_median_phylum))
+
+phylum_graph_V7 = dat_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+phylum_graph_V7 = phylum_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+phylum_graph_V7 = phylum_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+phylum_graph_V7 = merge (phylum_graph_V7, median_phylum_V7, by="Phylum")
+phylum_graph_V7 = arrange(phylum_graph_V7, desc(RA_median_phylum))
+phylum_graph_V7 = phylum_graph_V7 %>%
+  slice(1,2,4,3,5,6)
+row.names(phylum_graph_V7) = NULL
+
+phylum_graph_V7_export = phylum_graph_V7 [,-c(3,4)]
+colnames (phylum_graph_V7_export) = c("Phylum", "Total Reads", "RA-Mean", "RA-Median", "IQR")
+
+is.num = sapply(phylum_graph_V7_export, is.numeric)
+phylum_graph_V7_export [is.num] = lapply(phylum_graph_V7_export [is.num], round, 2)
+
+kable(phylum_graph_V7_export) %>%
+  kable_styling(fixed_thead = T)
+
+kable(phylum_graph_V7_export) %>%
+  kable_styling(fixed_thead = T) %>%
+  save_kable(file = "Output-taxa-V7/V7-All-samples-phylum-merged-table.html", self_contained = T)
+
+#Creating factors for plots
+dat_V7_RA$Phylum = as.factor(dat_V7_RA$Phylum)
+dat_V7_RA$Phylum = factor(dat_V7_RA$Phylum, levels = order_phylum)
+
+seq_group_arm = factor(dat_V7_RA$Treatment_Arm)
+seq_group_ics = factor(dat_V7_RA$ICS)
+
+#Creating a merged dataframe for plots according to the Randomization Arm
+Arm_V7 = merge_samples(OTU_V7, "Treatment_Arm")
+Arm_V7 = prune_taxa(taxa_sums (Arm_V7) > 0, Arm_V7)
+Arm_V7
+
+glom_V7_arm = tax_glom (Arm_V7, taxrank = 'Phylum')
+glom_V7_arm_RA = transform_sample_counts (glom_V7_arm, function(x){x / sum(x)})
+
+dat_V7_arm = psmelt (glom_V7_arm)
+dat_V7_arm_RA = psmelt (glom_V7_arm_RA)
+
+dat_V7_arm = dat_V7_arm %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V7_arm)[1] = "Group"
+
+dat_V7_arm_RA = dat_V7_arm_RA %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V7_arm_RA)[1] = "Group"
+
+dat_V7_arm[!dat_V7_arm$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V7_arm_RA[!dat_V7_arm_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+#Reordering factors for plots
+dat_V7_arm_RA$Group = as.factor (dat_V7_arm_RA$Group)
+dat_V7_arm_RA$Phylum = as.factor(dat_V7_arm_RA$Phylum)
+dat_V7_arm_RA$Phylum = factor(dat_V7_arm_RA$Phylum, levels = order_phylum)
+
+#Making merged plots - V7 (Randomization group vs. Phylum)
+metadata_V7 = metadata %>%
+  filter(Visit == "V7") %>%
+  droplevels()
+
+xlabs = paste(levels(metadata_V7$Treatment_Arm),"\n(N=",
+              table(metadata_V7$Treatment_Arm),")",sep="")
+
+p = ggplot(dat_V7_arm_RA, aes(fill=Phylum, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Phylum Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_phylum) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Phylum") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V7/V7-Arm-phylum-3groups.png",
+       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to the Randomization Arm
+#Flu + Salm (V7) - Phylum
+Adv_V7 = dat_V7 %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_V7_RA = dat_V7_RA %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_V7_median = ddply(Adv_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                        IQR=IQR(x$Abundance)))
+
+Adv_V7_median$RA_median_phylum = Adv_V7_median$RA_median_phylum *100
+Adv_V7_median$IQR = Adv_V7_median$IQR *100
+Adv_V7_median$Phylum = factor(Adv_V7_median$Phylum, levels = order_phylum)
+Adv_V7_median = Adv_V7_median[-6,]
+
+Adv_graph_V7 =  Adv_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Adv_graph_V7 = Adv_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Adv_graph_V7 = Adv_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Adv_graph_V7 = merge (Adv_graph_V7, Adv_V7_median, by="Phylum")
+Adv_graph_V7$Phylum = factor(Adv_graph_V7$Phylum , levels = order_phylum)
+row.names(Adv_graph_V7) = NULL
+
+Adv_graph_V7$Group = as.factor("Flu + Salm")
+
+Adv_graph_V7 = Adv_graph_V7 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Adv_graph_V7 = Adv_graph_V7 %>%
+  slice(match(order_phylum, Phylum))
+
+#Bud + Form (V7) - Phylum
+Symb_V7 = dat_V7 %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_V7_RA = dat_V7_RA %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_V7_median = ddply(Symb_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                          IQR=IQR(x$Abundance)))
+
+Symb_V7_median$RA_median_phylum = Symb_V7_median$RA_median_phylum *100
+Symb_V7_median$IQR = Symb_V7_median$IQR *100
+Symb_V7_median$Phylum = factor(Symb_V7_median$Phylum, levels = order_phylum)
+Symb_V7_median  =Symb_V7_median [-6,]
+
+Symb_graph_V7 =  Symb_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Symb_graph_V7 = Symb_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Symb_graph_V7 = Symb_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Symb_graph_V7 = merge (Symb_graph_V7, Symb_V7_median, by="Phylum")
+Symb_graph_V7$Phylum = factor(Symb_graph_V7$Phylum, levels = order_phylum)
+row.names(Symb_graph_V7) = NULL
+
+Symb_graph_V7$Group = as.factor("Flu + Salm")
+
+Symb_graph_V7 = Symb_graph_V7 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Symb_graph_V7  = Symb_graph_V7  %>%
+  slice(match(order_phylum, Phylum))
+
+#Form (V7) - Phylum
+Oxeze_V7 = dat_V7 %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_V7_RA = dat_V7_RA %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_V7_median = ddply(Oxeze_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                            IQR=IQR(x$Abundance)))
+
+Oxeze_V7_median$RA_median_phylum = Oxeze_V7_median$RA_median_phylum *100
+Oxeze_V7_median$IQR = Oxeze_V7_median$IQR *100
+Oxeze_V7_median$Phylum = factor(Oxeze_V7_median$Phylum, levels = order_phylum)
+Oxeze_V7_median = Oxeze_V7_median [-6,]
+
+Oxeze_graph_V7 =  Oxeze_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Oxeze_graph_V7 = Oxeze_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Oxeze_graph_V7 = Oxeze_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Oxeze_graph_V7 = merge (Oxeze_graph_V7, Oxeze_V7_median, by="Phylum")
+Oxeze_graph_V7$Phylum = factor(Oxeze_graph_V7$Phylum, levels = order_phylum)
+row.names(Oxeze_graph_V7) = NULL
+
+Oxeze_graph_V7$Group = as.factor("Form")
+
+Oxeze_graph_V7 = Oxeze_graph_V7 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Oxeze_graph_V7  = Oxeze_graph_V7  %>%
+  slice(match(order_phylum, Phylum))
+
+#Table Phylum - V7 (Randomization Arm)
+Table_V7_Arm = cbind (Symb_graph_V7 [,c(2,3,4,5)], Adv_graph_V7 [,c(3,4,5)], Oxeze_graph_V7 [,c(3,4,5)])
+colnames (Table_V7_Arm) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V7_Arm, is.numeric)
+Table_V7_Arm [is.num] = lapply(Table_V7_Arm [is.num], round, 2)
+
+kable(Table_V7_Arm) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V7_Arm) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  save_kable(file = "Output-taxa-V7/Phylum-V7-table-Arm.html", self_contained = T)
+
+#Comparing Randomization Arm versus Phylum 
+RANK = 'Phylum'
+
+dat_V7_RA_1 = dat_V7_RA %>%
+  filter(Phylum!= "Others") %>%
+  select ('SampleID', 'Treatment_Arm', 'ICS', 'Phylum', 'Abundance')
+
+V7_arm_kw_phylum = dat_V7_RA_1 %>% 
+  group_by(Phylum) %>% 
+  do(tidy(kruskal.test(x= .$Abundance, g = .$Treatment_Arm, exact))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V7_arm_kw_phylum
+
+V7_arm_kw_phylum = V7_arm_kw_phylum [c(1,5,4,2,3,6)]
+
+V7_arm_kw_phylum = V7_arm_kw_phylum %>%
+  slice(match(order_phylum, Phylum))
+
+V7_arm_kw_phylum %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V7_arm_kw_phylum, file = "Output-taxa-V7/V7_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
+
+########################################################################Phylum-V7 (ICS status)###############################################################################
+#Creating a merged dataframe for plots according to ICS status
+ICS_status_V7 = merge_samples(OTU_V7, "ICS")
+ICS_status_V7 = prune_taxa(taxa_sums (ICS_status_V7) > 0, ICS_status_V7)
+ICS_status_V7
+
+glom_V7_ics = tax_glom(ICS_status_V7, taxrank = 'Phylum')
+glom_V7_ics_RA = transform_sample_counts(glom_V7_ics, function(x){x / sum(x)})
+
+dat_V7_ics = psmelt(glom_V7_ics)
+dat_V7_ics_RA = psmelt(glom_V7_ics_RA)
+
+dat_V7_ics = dat_V7_ics %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V7_ics)[1] = "Group"
+
+dat_V7_ics_RA = dat_V7_ics_RA %>%
+  select (Sample, OTU, Abundance, Phylum)
+
+colnames (dat_V7_ics_RA)[1] = "Group"
+
+dat_V7_ics[!dat_V7_ics$Phylum %in% List_phylum,]$Phylum = 'Others'
+dat_V7_ics_RA[!dat_V7_ics_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
+
+##Reordering factors for plots
+dat_V7_ics_RA$Group = as.factor (dat_V7_ics_RA$Group)
+dat_V7_ics_RA$Phylum = factor(dat_V7_ics_RA$Phylum, levels = order_phylum)
+
+#Making merged plots - V7 (ICS status vs. Phylum)
+xlabs = paste(levels(metadata_V7$ICS),"\n(N=",
+              table(metadata_V7$ICS),")",sep="")
+
+p = ggplot(dat_V7_ics_RA, aes(fill=Phylum, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Phylum Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_phylum) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Phylum") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V7/V7-ics-phylum-2groups.png",
+       width = 7.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to ICS status
+#ICS (V7) - Phylum
+ICS_V7 = dat_V7 %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_V7_RA = dat_V7_RA %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_V7_median = ddply(ICS_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                        IQR=IQR(x$Abundance)))
+
+ICS_V7_median$RA_median_phylum = ICS_V7_median$RA_median_phylum *100
+ICS_V7_median$IQR = ICS_V7_median$IQR *100
+ICS_V7_median$Phylum = factor(ICS_V7_median$Phylum, levels = order_phylum)
+ICS_V7_median = ICS_V7_median [-6,]
+
+ICS_graph_V7 =  ICS_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+ICS_graph_V7 = ICS_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+ICS_graph_V7 = ICS_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+ICS_graph_V7 = merge (ICS_graph_V7, ICS_V7_median, by="Phylum")
+ICS_graph_V7$Phylum = factor(ICS_graph_V7$Phylum, levels = order_phylum)
+row.names(ICS_graph_V7) = NULL
+
+ICS_graph_V7$Group = as.factor("ICS")
+
+ICS_graph_V7 = ICS_graph_V7 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+ICS_graph_V7  = ICS_graph_V7  %>%
+  slice(match(order_phylum, Phylum))
+
+#Non-ICS (V7) - Phylum
+Non_ICS_V7 = dat_V7 %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_V7_RA = dat_V7_RA %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_V7_median = ddply(Non_ICS_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
+                                                                IQR=IQR(x$Abundance)))
+
+Non_ICS_V7_median$RA_median_phylum = Non_ICS_V7_median$RA_median_phylum *100
+Non_ICS_V7_median$IQR = Non_ICS_V7_median$IQR *100
+Non_ICS_V7_median$Phylum = factor(Non_ICS_V7_median$Phylum, levels = order_phylum)
+Non_ICS_V7_median = Non_ICS_V7_median [-6,]
+
+Non_ICS_graph_V7 =  Non_ICS_V7 %>%
+  group_by(Phylum) %>%
+  summarise (total_reads_phylum  = sum(Abundance),
+             median_reads_phylum = median(Abundance))
+
+Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_phylum))
+
+Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
+  mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
+
+Non_ICS_graph_V7 = merge (Non_ICS_graph_V7, Non_ICS_V7_median, by="Phylum")
+Non_ICS_graph_V7$Phylum = factor(Non_ICS_graph_V7$Phylum, levels = order_phylum)
+row.names(Non_ICS_graph_V7) = NULL
+
+Non_ICS_graph_V7$Group = as.factor("Non-ICS")
+
+Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+
+Non_ICS_graph_V7  = Non_ICS_graph_V7  %>%
+  slice(match(order_phylum, Phylum))
+
+#Table Phylum - V7 (ICS status)
+Table_V7_ICS = cbind (ICS_graph_V7 [,c(2,3,4,5)], Non_ICS_graph_V7 [,c(3,4,5)])
+colnames (Table_V7_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V7_ICS, is.numeric)
+Table_V7_ICS [is.num] = lapply(Table_V7_ICS [is.num], round, 2)
+
+kable(Table_V7_ICS) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V7_ICS) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  save_kable(file = "Output-taxa-V7/Phylum-V7-table-ICS.html", self_contained = T)
+
+#Comparing ICS status versus Phylum 
+RANK = 'Phylum'
+
+dat_V7_RA_1 %>%
+  group_by_(RANK) %>%
+  do(tidy(wilcox.test (Abundance ~ ICS, data=., exact=F))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V7_ics_wilcoxon_phylum
+
+V7_ics_wilcoxon_phylum = V7_ics_wilcoxon_phylum [c(1,4,5,2,3,6)]
+
+V7_ics_wilcoxon_phylum = V7_ics_wilcoxon_phylum %>%
+  slice(match(order_phylum, Phylum))
+
+V7_ics_wilcoxon_phylum %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V7_ics_wilcoxon_phylum, file = "Output-taxa-V7/V7_ics_phylum.results.csv", sep = ",", 
+            qmethod = "double", row.names=FALSE)
+
+##################################################################Genus-V7 (Randomization Arm)#############################################################################
+#Creating csv file (phyloseq object: OTU_V7) 
+OTU_taxa_genus_V7 =  OTU_V7 %>%
+  tax_glom(taxrank = "Genus") %>%                       # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>%  # Transform to rel. abundance
+  psmelt() %>%                                          # Melt to long format
+  arrange(Genus)
+
+write.table(OTU_taxa_genus_V7, file = "Output-taxa-V7/V7-OTU_taxa_genus-raw.csv", sep = ",", row.names = FALSE, qmethod = "double")
+
+#Creating a merged dataframe by genus (phyloseq object: OTU_V7) 
+glom_g_V7 = tax_glom (OTU_V7, taxrank = 'Genus')
+glom_g_V7_RA = transform_sample_counts(glom_g_V7, function(x){x / sum(x)})
+
+dat_g_V7 = psmelt(glom_g_V7)
+dat_g_V7_RA = psmelt(glom_g_V7_RA)
+
+dat_g_V7  = dat_g_V7 [,-2]
+dat_g_V7_RA = dat_g_V7_RA [,-2]
+
+dat_g_V7 = dat_g_V7 %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Genus, Treatment_Arm, ICS, everything())
+
+dat_g_V7_RA = dat_g_V7_RA %>%
+  select(SampleID, Unique_ID, OTU, Abundance, Genus, Treatment_Arm, ICS, everything())
+
+#Changing low abundant taxa to "Others" (phyloseq object: OTU_V7) 
+dat_g_V7[!dat_g_V7$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V7_RA[!dat_g_V7_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+ggplot(dat_g_V7_RA,
+       aes(x=Genus,
+           y=Abundance)) + geom_boxplot() + coord_flip()
+
+#Exporting OTU tables with absolute counts and relative abundances with "Others" category (OTU_V7)
+write.table(dat_V7, file = "Output-taxa-V7/V7-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+write.table(dat_V7_RA, file = "Output-taxa-V7/V7-RA-OTU_taxa_phyla_others.csv", sep = ",", row.names = F, qmethod = "double")
+
+#Creating a merged dataframe according to genus with mean/median relative abundances and IQR (phyloseq object: OTU_V7) 
+median_genus_V7 = ddply(dat_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+median_genus_V7$RA_median_genus = median_genus_V7$RA_median_genus *100
+median_genus_V7$IQR = median_genus_V7$IQR *100
+median_genus_V7  = median_genus_V7 %>% arrange(desc(RA_median_genus))
+
+genus_graph_V7 = dat_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+genus_graph_V7 = genus_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+genus_graph_V7 = genus_graph_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+genus_graph_V7 = merge (genus_graph_V7, median_genus_V7, by="Genus")
+genus_graph_V7 = arrange(genus_graph_V7, desc(RA_median_genus))
+genus_graph_V7 = genus_graph_V7 %>%
+  slice(3,1,2,6,5,4,7,11,8,9,14,13,15,12,10,16)
+row.names(genus_graph_V7) = NULL
+
+genus_graph_V7_export = genus_graph_V7 [,-c(3,4)]
+colnames (genus_graph_V7_export) = c("Genus", "Total Reads", "RA-Mean", "RA-Median", "IQR")
+
+is.num = sapply(genus_graph_V7_export, is.numeric)
+genus_graph_V7_export [is.num] = lapply(genus_graph_V7_export [is.num], round, 2)
+
+kable(genus_graph_V7_export) %>%
+  kable_styling(fixed_thead = T)
+
+kable(genus_graph_V7_export) %>%
+  kable_styling(fixed_thead = T) %>%
+  save_kable(file = "Output-taxa-V7/V7-All-samples-genus-merged-table.html", self_contained = T)
+
+#Creating factors for plots
+dat_g_V7_RA$Genus = as.factor(dat_g_V7_RA$Genus)
+dat_g_V7_RA$Genus = factor(dat_g_V7_RA$Genus, levels = order_genus)
+
+#Creating a merged dataframe for plots according to the Randomization Arm
+glom_g_V7_arm = tax_glom (Arm_V7, taxrank = 'Genus')
+glom_g_V7_arm_RA = transform_sample_counts(glom_g_V7_arm, function(x){x / sum(x)})
+
+dat_g_V7_arm = psmelt (glom_g_V7_arm)
+dat_g_V7_arm_RA = psmelt(glom_g_V7_arm_RA)
+
+dat_g_V7_arm = dat_g_V7_arm %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V7_arm)[1] = "Group"
+
+dat_g_V7_arm_RA = dat_g_V7_arm_RA %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V7_arm_RA)[1] = "Group"
+
+dat_g_V7_arm[!dat_g_V7_arm$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V7_arm_RA[!dat_g_V7_arm_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+#Reordering factors for plots
+dat_g_V7_arm_RA$Group = as.factor (dat_g_V7_arm_RA$Group)
+dat_g_V7_arm_RA$Genus = as.factor(dat_g_V7_arm_RA$Genus)
+dat_g_V7_arm_RA$Genus = factor(dat_g_V7_arm_RA$Genus, levels = order_genus)
+
+#Making merged plots - V7 (Randomization group vs. Genus)
+xlabs = paste(levels(metadata_V7$Treatment_Arm),"\n(N=",
+              table(metadata_V7$Treatment_Arm),")",sep="")
+
+p = ggplot(dat_g_V7_arm_RA, aes(fill=Genus, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Genus Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_genus) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Genus") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V7/V7-Arm-genus-3groups.png",
+       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to the Randomization Arm
+#Flu + Salm (V7) - Genus
+Adv_g_V7 = dat_g_V7 %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_g_V7_RA = dat_g_V7_RA %>%
+  filter(Treatment_Arm == "Flu + Salm") %>%
+  droplevels()
+
+Adv_g_V7_median = ddply(Adv_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+Adv_g_V7_median$RA_median_genus = Adv_g_V7_median$RA_median_genus *100
+Adv_g_V7_median$IQR = Adv_g_V7_median$IQR *100
+Adv_g_V7_median$Genus = factor(Adv_g_V7_median$Genus, levels = order_genus)
+Adv_g_V7_median = Adv_g_V7_median[-6,]
+
+Adv_graph_g_V7 =  Adv_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Adv_graph_g_V7 = merge (Adv_graph_g_V7, Adv_g_V7_median, by="Genus")
+Adv_graph_g_V7$Genus = factor(Adv_graph_g_V7$Genus , levels = order_genus)
+row.names(Adv_graph_g_V7) = NULL
+
+Adv_graph_g_V7$Group = as.factor("Flu + Salm")
+
+Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+  slice(match(order_genus, Genus))
+
+#Bud + Form (V7) - Genus
+Symb_g_V7 = dat_g_V7 %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_g_V7_RA = dat_g_V7_RA %>%
+  filter(Treatment_Arm == "Bud + Form") %>%
+  droplevels()
+
+Symb_g_V7_median = ddply(Symb_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                             IQR=IQR(x$Abundance)))
+
+Symb_g_V7_median$RA_median_genus = Symb_g_V7_median$RA_median_genus *100
+Symb_g_V7_median$IQR = Symb_g_V7_median$IQR *100
+Symb_g_V7_median$Genus = factor(Symb_g_V7_median$Genus, levels = order_genus)
+Symb_g_V7_median = Symb_g_V7_median[-6,]
+
+Symb_graph_g_V7 =  Symb_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Symb_graph_g_V7 = merge (Symb_graph_g_V7, Symb_g_V7_median, by="Genus")
+Symb_graph_g_V7$Genus = factor(Symb_graph_g_V7$Genus , levels = order_genus)
+row.names(Symb_graph_g_V7) = NULL
+
+Symb_graph_g_V7$Group = as.factor("Bud + Form")
+
+Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+  slice(match(order_genus, Genus))
+
+#Form (V7) - Genus
+Oxeze_g_V7 = dat_g_V7 %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_g_V7_RA = dat_g_V7_RA %>%
+  filter(Treatment_Arm == "Form") %>%
+  droplevels()
+
+Oxeze_g_V7_median = ddply(Oxeze_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                               IQR=IQR(x$Abundance)))
+
+Oxeze_g_V7_median$RA_median_genus = Oxeze_g_V7_median$RA_median_genus *100
+Oxeze_g_V7_median$IQR = Oxeze_g_V7_median$IQR *100
+Oxeze_g_V7_median$Genus = factor(Oxeze_g_V7_median$Genus, levels = order_genus)
+Oxeze_g_V7_median = Oxeze_g_V7_median[-6,]
+
+Oxeze_graph_g_V7 =  Oxeze_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Oxeze_graph_g_V7 = merge (Oxeze_graph_g_V7, Oxeze_g_V7_median, by="Genus")
+Oxeze_graph_g_V7$Genus = factor(Oxeze_graph_g_V7$Genus , levels = order_genus)
+row.names(Oxeze_graph_g_V7) = NULL
+
+Oxeze_graph_g_V7$Group = as.factor("Form")
+
+Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+  slice(match(order_genus, Genus))
+
+#Table Genus - V7 (Randomization Arm)
+Table_V7_g_Arm = cbind (Symb_graph_g_V7 [,c(2,3,4,5)], Adv_graph_g_V7 [,c(3,4,5)], Oxeze_graph_g_V7 [,c(3,4,5)])
+colnames (Table_V7_g_Arm) = c("Genus", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V7_g_Arm, is.numeric)
+Table_V7_g_Arm [is.num] = lapply(Table_V7_g_Arm [is.num], round, 2)
+
+kable(Table_V7_g_Arm) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V7_g_Arm) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  save_kable(file = "Output-taxa-V7/Genus-V7-table-Arm.html", self_contained = T)
+
+#Comparing Randomization Arm versus Genus 
+RANK = 'Genus'
+
+dat_g_V7_RA_1 = dat_g_V7_RA %>%
+  filter(Genus!= "Others") %>%
+  select ('SampleID', 'Treatment_Arm', 'ICS', 'Genus', 'Abundance')
+
+V7_arm_kw_genus = dat_g_V7_RA_1 %>% 
+  group_by(Genus) %>% 
+  do(tidy(kruskal.test(x= .$Abundance, g = .$Treatment_Arm, exact))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V7_arm_kw_genus
+
+V7_arm_kw_genus = V7_arm_kw_genus [c(1,5,4,2,3,6)]
+
+V7_arm_kw_genus = V7_arm_kw_genus %>%
+  slice(match(order_genus, Genus))
+
+V7_arm_kw_genus %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V7_arm_kw_genus, file = "Output-taxa-V7/V7_arm_genus.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
+
+########################################################################Genus-V7 (ICS status)###############################################################################
+#Creating a merged dataframe for plots according to ICS status
+glom_g_V7_ics = tax_glom (ICS_status_V7, taxrank = 'Genus')
+glom_g_V7_ics_RA = transform_sample_counts (glom_g_V7_ics, function(x){x / sum(x)})
+
+dat_g_V7_ics = psmelt(glom_g_V7_ics)
+dat_g_V7_ics_RA = psmelt(glom_g_V7_ics_RA)
+
+dat_g_V7_ics = dat_g_V7_ics %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V7_ics)[1] = "Group"
+
+dat_g_V7_ics_RA = dat_g_V7_ics_RA %>%
+  select (Sample, OTU, Abundance, Genus)
+
+colnames (dat_g_V7_ics_RA)[1] = "Group"
+
+dat_g_V7_ics[!dat_g_V7_ics$Genus %in% List_genus,]$Genus = 'Others'
+dat_g_V7_ics_RA[!dat_g_V7_ics_RA$Genus %in% List_genus,]$Genus = 'Others'
+
+##Reordering factors for plots
+dat_g_V7_ics_RA$Group = as.factor (dat_g_V7_ics_RA$Group)
+dat_g_V7_ics_RA$Genus = factor(dat_g_V7_ics_RA$Genus, levels = order_genus)
+
+#Making merged plots - V7 (ICS status vs. Genus)
+xlabs = paste(levels(metadata_V7$ICS),"\n(N=",
+              table(metadata_V7$ICS),")",sep="")
+
+p = ggplot(dat_g_V7_ics_RA, aes(fill=Genus, y=Abundance, x=Group, width=.85)) +
+  geom_bar(stat="identity", position = position_fill(reverse = F)) + theme_bw() +
+  theme(legend.text = element_text(colour="black", size = 8, face = "bold"))+
+  theme(plot.title = element_text(lineheight=0.8, face="bold", size=14))+
+  labs(title="Genus Level") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=cbPalette_genus) +
+  ylab("Relative Abundance\n")+
+  labs(fill = "Genus") +
+  theme(legend.title = element_text(colour="black", size=12, face="bold")) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(axis.title.x = element_blank())+
+  theme(legend.title = element_blank())+
+  theme(axis.title.y = element_text(face="bold", size=16, vjust=1.5),
+        axis.text.x  = element_text(face="bold", colour="black", size=14),
+        axis.text.y  = element_text(face="bold", colour="black", size=14),
+        legend.text=element_text(size=12)) 
+
+p + theme(panel.background = element_blank(), 
+          panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(), 
+          plot.margin = unit(c(1,2,1,2), "cm"))
+
+ggsave(filename = "Output-taxa-V7/V7-ics-genus-2groups.png",
+       width = 7.0, height = 6.5, dpi = 300, units = "in", device='png')
+
+#Creating subsets tables according to ICS status
+#ICS (V7) - Genus
+ICS_g_V7 = dat_g_V7 %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_g_V7_RA = dat_g_V7_RA %>%
+  filter(ICS == "ICS") %>%
+  droplevels()
+
+ICS_g_V7_median = ddply(ICS_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                           IQR=IQR(x$Abundance)))
+
+ICS_g_V7_median$RA_median_genus = ICS_g_V7_median$RA_median_genus *100
+ICS_g_V7_median$IQR = ICS_g_V7_median$IQR *100
+ICS_g_V7_median$Genus = factor(ICS_g_V7_median$Genus, levels = order_genus)
+ICS_g_V7_median = ICS_g_V7_median [-6,]
+
+ICS_g_graph_V7 =  ICS_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+ICS_g_graph_V7 = ICS_g_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+ICS_g_graph_V7 = ICS_g_graph_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+ICS_g_graph_V7 = merge (ICS_g_graph_V7, ICS_g_V7_median, by="Genus")
+ICS_g_graph_V7$Genus = factor(ICS_g_graph_V7$Genus, levels = order_genus)
+row.names(ICS_g_graph_V7) = NULL
+
+ICS_g_graph_V7$Group = as.factor("ICS")
+
+ICS_g_graph_V7 = ICS_g_graph_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+ICS_g_graph_V7  = ICS_g_graph_V7  %>%
+  slice(match(order_genus, Genus))
+
+#Non-ICS (V7) - Genus
+Non_ICS_g_V7 = dat_g_V7 %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_g_V7_RA = dat_g_V7_RA %>%
+  filter(ICS == "Non-ICS") %>%
+  droplevels()
+
+Non_ICS_g_V7_median = ddply(Non_ICS_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
+                                                                   IQR=IQR(x$Abundance)))
+
+Non_ICS_g_V7_median$RA_median_genus = Non_ICS_g_V7_median$RA_median_genus *100
+Non_ICS_g_V7_median$IQR = Non_ICS_g_V7_median$IQR *100
+Non_ICS_g_V7_median$Genus = factor(Non_ICS_g_V7_median$Genus, levels = order_genus)
+Non_ICS_g_V7_median = Non_ICS_g_V7_median [-6,]
+
+Non_ICS_g_graph_V7 =  Non_ICS_g_V7 %>%
+  group_by(Genus) %>%
+  summarise (total_reads_genus  = sum(Abundance),
+             median_reads_genus = median(Abundance))
+
+Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
+  mutate (total_reads_overall  = sum(total_reads_genus))
+
+Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
+  mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
+
+Non_ICS_g_graph_V7 = merge (Non_ICS_g_graph_V7, Non_ICS_g_V7_median, by="Genus")
+Non_ICS_g_graph_V7$Genus = factor(Non_ICS_g_graph_V7$Genus, levels = order_genus)
+row.names(Non_ICS_g_graph_V7) = NULL
+
+Non_ICS_g_graph_V7$Group = as.factor("Non-ICS")
+
+Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+
+Non_ICS_g_graph_V7  = Non_ICS_g_graph_V7  %>%
+  slice(match(order_genus, Genus))
+
+#Table Genus - V7 (ICS status)
+Table_V7_g_ICS = cbind (ICS_g_graph_V7 [,c(2,3,4,5)], Non_ICS_g_graph_V7 [,c(3,4,5)])
+colnames (Table_V7_g_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+
+is.num = sapply(Table_V7_g_ICS, is.numeric)
+Table_V7_g_ICS [is.num] = lapply(Table_V7_g_ICS [is.num], round, 2)
+
+kable(Table_V7_g_ICS) %>%
+  kable_styling(fixed_thead = T)
+
+kable(Table_V7_g_ICS) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  save_kable(file = "Output-taxa-V7/Genus-V7-table-ICS.html", self_contained = T)
+
+#Comparing ICS status versus Genus 
+RANK = 'Genus'
+
+dat_g_V7_RA_1 %>%
+  group_by_(RANK) %>%
+  do(tidy(wilcox.test (Abundance ~ ICS, data=., exact=F))) %>%
+  ungroup() %>%
+  mutate(p.adjust=p.adjust(p.value, method = "fdr")) -> V7_ics_wilcoxon_genus
+
+V7_ics_wilcoxon_genus = V7_ics_wilcoxon_genus [c(1,4,5,2,3,6)]
+
+V7_ics_wilcoxon_genus = V7_ics_wilcoxon_genus %>%
+  slice(match(order_genus, Genus))
+
+V7_ics_wilcoxon_genus %>%
+  #subset(p.value > 0.05) %>%
+  knitr::kable(format = "markdown")
+
+write.table(V7_ics_wilcoxon_genus, file = "Output-taxa-V7/V7_ics_genus.results.csv", sep = ",", 
+            qmethod = "double", row.names=FALSE)
 
 
 
