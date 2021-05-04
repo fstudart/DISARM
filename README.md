@@ -1,24 +1,15 @@
 # DISARM
 PROJECT DISARM - Effects of ICS/LABA vs. LABA-only on the airway microbiome of COPD subjects
 
-#Sputum Microbiome is Associated With 1-Year Mortality Following COPD Hospitalizations
+#Description
+This is the first randomized controlled study designed to investigate the potential changes in the airway microbiome before and after treatment with two different ICS/LABA (budesonide/formoterol and fluticasone/salmeterol) formulations versus LABA-only (formoterol) in patients with COPD (ClinicalTrials.gov Identifier: NCT02833480). 
 
-Description
+Following informed consent, all patients were treated with formoterol (12 mcg BID) for four weeks. At the end of the run-in period, patients were randomized to one of three groups: 1) Budesonide 400 mcg + Formoterol 12 mcg BID; 2) Fluticasone 250 mcg + Salmeterol 50 mcg BID; or 3) Formoterol 12 mcg BID. Bronchial brushing (BC) samples were collected at randomization (Visit 3; V3 samples) and at week 12 (Visit 7; V7 samples). Library preparation and sequencing of 16S rRNA gene V4 region was performed on BC samples using the Illumina® MiSeq® platform. Sequencing reads were clustered into Amplicon Sequence Variants using the QIIME 2® (Quantitative Insights into Microbial Ecology) pipeline.
 
-Lung microbiome data based on sputum samples collected from COPD patients enrolled in the Rapid Transition Cohort (ClinicalTrials.gov Identifier: NCT02050022). All samples (n=112) were collected on day 1 of hospitalization due to acute exacerbation of COPD (AECOPD). 1-Year mortality status was also captured during follow-up.
+Sequence data from all BC samples (n=119) used in this analysis have been submitted to the National Center for Biotechnology Information’s Sequence Read Archive (SRA) under the following accession numbers: BioProject PRJNA685554.
 
-Sequence data from all sputum samples (n=112) used in this analysis have been submitted to the National Center for Biotechnology Information’s Sequence Read Archive (SRA) under the following accession numbers: BioProject PRJNA491749 and SRA study accession SRP162074.
+#FIles 
+In the Directory: Disarm/Files_used_analysis, the data files used for analysis in the manuscript "Effects of inhaled corticosteroid/long acting beta-2 agonist combination on the airway microbiome of patients with COPD: a randomized controlled trial (DISARM)", are available for download. This manuscript has been submitted to the Blue Journal (under revision; R1).
 
-In the Directory:/Files_used_analysis, the data files used for analysis in the manuscript "Sputum Microbiome is Associated With 1-Year Mortality Following COPD Hospitalizations" (https://www.ncbi.nlm.nih.gov/pubmed/30376356) are available for download:
-
-BIOM files: 102-Sputum-not-rarefied-with-taxonomy.biom; 102-Sputum-rarefied-with-taxonomy.biom
-
-Metadata file: 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.txt
-
-Phylogenetic tree file (rooted): tree.nwk
-
-Values for alpha diversity metrics - exported from QIIME2™: RTC-sputum-alpha-diversity-from-Qiime2.txt
-
-Generalized Unifrac distance matrix - exported from QIIME2™: GU-distance-matrix.txt
-
-Questions: please contact Fernando Studart (fernando.studart@hli.ubc.ca).
+#Questions
+Please contact Fernando Studart (fernando.studart@hli.ubc.ca).
