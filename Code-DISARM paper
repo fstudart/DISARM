@@ -2,17 +2,17 @@ Author: Dr. Fernando Sergio S. Leitao Filho
 Center for Heart Lung Innovation – University of British Columbia
 E-mail: Fernando.Studart@hli.ubc.ca
 
-SEQUENCING DATA COMES FROM TWO BATCHES: 
-BATCH 1: All samples collected at both time points were included in this batch, except for those related to Disarm participant 85 (who was randomized to the Formoterol arm). 
+NOTE 1: SEQUENCING DATA COMES FROM TWO BATCHES: 
+- BATCH 1: All samples collected at both time points were included in this batch, except for those related to Disarm participant 85 (who was randomized to the Formoterol arm). 
 For this participant, his samples collected during the first bronchoscopy visit were also included in batch 1. 
+- Batch 2: Contains all samples collected at the second bronchocopy visit from the Disarm participant 85. 
 
-Batch 2: Contains all samples collected at the second bronchocopy visit of the Disarm participant 85. 
+NOTE 2: File "Attributes.tsv" available in folder DISARM/Files_used_analysis indicates which samples were originated from each batch.
 
-Note: File "Attributes.tsv" available in folder DISARM/Files_used_analysis indicates which samples were originated from each batch.
+NOTE 3: V3 STANDS FOR VISIT V3 (FIRST BRONCHOSCOPY VISIT), AND V7 STANDS FOR VISIT V7 (SECOND BRONCHOSCOPY VISIT).
 
-QIIME2 VERSION USED IN THIS ANALSYS: 2020.2
-
-PART I - BATCH 1
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART I (BATCH 1) / Environment: QIIME2 (2020.2)
 
 #IMPORTING DATA
 #Place all fastq.gz files (both forward and reverse files from Batch 1) into the same folder; in this example: Fastq-R1.
@@ -137,8 +137,8 @@ qiime metadata tabulate \
   --m-input-file Disarm-only-rep-seqs-run1-filtered-after-decontam.qza \
   --o-visualization Disarm-only-rep-seqs-run1-filtered-after-decontam.qzv
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-PART II - BATCH 2
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART II (BATCH 2) / Environment: QIIME2 (2020.2)
 
 #IMPORTING DATA 
 #Place all fastq.gz files (both forward and reverse files from Batch 2) into the same folder; in this example: Fastq-R2.
@@ -263,8 +263,8 @@ qiime metadata tabulate \
   --m-input-file Disarm-only-rep-seqs-run2-filtered-after-decontam.qza \
   --o-visualization Disarm-only-rep-seqs-run2-filtered-after-decontam.qzv
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-PART III - MERGING BATCHES 1 AND 2
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART III (MERGING BATCHES 1 AND 2) / Environment: QIIME2 (2020.2)
 
 qiime feature-table merge \
   --i-tables Run1/Disarm-only-samples-dada2-run1-filtered-after-decontam.qza \
@@ -360,8 +360,708 @@ qiime taxa barplot \
   --m-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
   --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contingency-phyla.qzv
 
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PART III - TAXONOMIC ANALYSES
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART IV - DIVERSITY ANALYSES INCLUDING LONGITUDINAL MICROBIOME COMPARISONS BETWEEN V3 AND V7 SAMPLES / Environment: QIIME2 (2020.2)
+
+
+
+
+
+
+
+
+
+
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART V - EXPORTING SOURCE FILES / Environment: QIIME2 (2020.2)
+
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART VI - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
+
+rm(list=ls())
+library(phyloseq)
+library(ggplot2)
+library(stringr)
+library(ape)
+library(tidyr)
+library(broom)
+library(dplyr)
+library(plyr)
+library(reshape2)
+library(doBy)
+library(RVAideMemoire)
+library(vegan)
+library(phangorn)
+library(RColorBrewer)
+library(gplots)
+library(kableExtra)
+library(gridExtra)
+library(knitr)
+library(plotly)
+library(ggpubr)
+library(data.table)
+library(survival)
+library(forcats)
+
+#Removing scientific notation
+options(scipen = 999)
+
+setwd("C:/Users/ferna/Desktop/R1-Disarm paper/Replication/Source_files")
+
+--------------------------------------------------------------Source files-------------------------------------------------------------------------------------------------
+# Importing medatata
+metadata = read.csv(file="Disarm_metadata-V3-V7.txt", header=T, sep='\t')
+
+metadata = metadata[order(metadata$SampleID),]
+rownames(metadata) = NULL
+
+metadata$Treatment_Arm = as.factor(metadata$Treatment_Arm)
+
+metadata$ICS = as.factor(metadata$ICS)
+
+metadata$Visit = as.factor(metadata$Visit)
+
+#Checking metadata
+metadata %>%
+  group_by(Treatment_Arm, Visit) %>%
+  tally()
+
+#One bronchial brushing (320067-V7-BC [collected at V7] from the Formoterol arm was discarded due to low number of reads) 
+
+metadata %>%                       
+  group_by(ICS, Visit) %>%
+  tally()
+
+#Importing OTU table, map and tree files
+biom = import_biom("Disarm-table-with-taxonomy-subsampled.biom")
+
+map = import_qiime_sample_data("Disarm_metadata-V3-V7.txt")
+rownames(map) = map$SampleID
+
+tree = read.tree("Disarm-tree-mafft.nwk")
+tree$tip.label = gsub("'", "", tree$tip.label, fixed = TRUE)
+tree$tip.label = gsub('"', '', tree$tip.label, fixed = TRUE)
+
+#Creating phyloseq object
+OTU = merge_phyloseq(biom,map,tree)
+OTU
+
+#Changing taxonomic ranks (Phyloseq object: OTU)
+colnames(tax_table(OTU))
+
+colnames(tax_table(OTU)) = c("Kingdom", "Phylum", "Class", 
+                             "Order", "Family", "Genus", "Species")
+
+OTU
+
+#Pre-Processing (Phyloseq object: OTU)
+OTU = prune_taxa(taxa_sums (OTU) > 0, OTU)
+
+OTU
+
+# Histogram of sample read counts (Phyloseq object: OTU)
+sample_sum_df = data.frame(sum = sample_sums(OTU))
+
+ggplot(sample_sum_df, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "indianred", binwidth = 500) +
+  ggtitle("Distribution of sample sequencing depth") + 
+  xlab("Read counts") +
+  theme(axis.title.y = element_blank())
+
+smin = min(sample_sums(OTU))
+smean = mean(sample_sums(OTU))
+smax = max(sample_sums(OTU))
+
+smin
+smean
+smax
+
+#Checking Phyloseq object
+head(sample_names(OTU))
+sample_variables(OTU)
+get_taxa_unique(OTU, "Phylum")
+get_taxa_unique(OTU, "Genus")
+
+#Transform to relative abundances (Phyloseq object: OTU)
+OTU_RA = transform_sample_counts(OTU, function(x) x / sum(x))
+
+-----------------------------------------------------------------Alpha Diversity Analyses-------------------------------------------------------------------------------------
+#Importing diversity values from Qiime2
+alpha_diversity = read.table ("Both-visits-alpha-diversity-from-Qiime2.txt", header=TRUE)
+is.num <- sapply(alpha_diversity, is.numeric)
+alpha_diversity[is.num] <- lapply(alpha_diversity[is.num], round, 2)
+
+#Creating dataset with alpha diversity values only from V3
+alpha_diversity_V3 = alpha_diversity %>%
+  filter(Visit == "V3") %>%
+  droplevels()
+
+alpha_diversity_V3 = alpha_diversity_V3 [,-2]
+
+#Creating dataset with clinical data only from V3
+metadata_V3 = metadata %>%
+  filter(Visit == "V3") %>%
+  droplevels()
+
+##Creating dataset with alpha diversity values only from V7
+alpha_diversity_V7 = alpha_diversity %>%
+  filter(Visit == "V7") %>%
+  droplevels()
+
+alpha_diversity_V7 = alpha_diversity_V7 [,-2]
+
+#Creating dataset with clinical data only from V7
+metadata_V7 = metadata %>%
+  filter(Visit == "V7") %>%
+  droplevels()
+
+---------------------------------------------------------------Alpha Diversity Analyses (V3)----------------------------------------------------------------------------------
+alpha_diversity_final_v3 <- merge(alpha_diversity_V3, metadata_V3,by="SampleID")
+
+alpha_diversity_final_v3 <- alpha_diversity_final_v3 %>%
+  select(SampleID, Treatment_Arm, ICS, everything())
+
+alpha_diversity_final_v3 %>%
+  group_by(Treatment_Arm) %>%
+  tally()
+
+alpha_diversity_final_v3 %>%
+  group_by(ICS) %>%
+  tally()
+
+#Richness vs. Randomization Arm (V3)
+attach (alpha_diversity_final_v3)
+
+xlabs <- paste(levels(alpha_diversity_final_v3$Treatment_Arm),"\n(N=",table(alpha_diversity_final_v3$Treatment_Arm),")",sep="")
+
+ggplot(alpha_diversity_final_v3, aes(x=Treatment_Arm, y=observed_otus, fill=Treatment_Arm)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Observed ASVs\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 100)) + 
+  scale_y_continuous(breaks=seq(0, 100, 25)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-Arm-Richness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(Treatment_Arm) %>%
+  summarise(median = median (observed_otus), IQR = IQR (observed_otus))
+
+kruskal.test (observed_otus ~ Treatment_Arm)
+
+#Shannon Index vs. Randomization Arm (V3)
+ggplot(alpha_diversity_final_v3, aes(x=Treatment_Arm, y=shannon, fill=Treatment_Arm)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Shannon Index\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 6)) + 
+  scale_y_continuous(breaks=seq(0, 6, 1)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-Arm-Shannon.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(Treatment_Arm) %>%
+  summarise(median = median (shannon), IQR = IQR (shannon))
+
+kruskal.test (shannon ~ Treatment_Arm)
+
+#Richness vs. ICS status (V3)
+xlabs <- paste(levels(alpha_diversity_final_v3$ICS),"\n(N=",table(alpha_diversity_final_v3$ICS),")",sep="")
+
+ggplot(alpha_diversity_final_v3, aes(x=ICS, y=observed_otus, fill=ICS)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Observed ASVs\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 100)) + 
+  scale_y_continuous(breaks=seq(0, 100, 25)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-ICS-Richness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(ICS) %>%
+  summarise(median = median (observed_otus), IQR = IQR (observed_otus))
+
+wilcox.test(observed_otus ~ ICS, paired = FALSE, exact = TRUE)
+
+#Shannon Index vs. ICS status (V3)
+ggplot(alpha_diversity_final_v3, aes(x=ICS, y=shannon, fill=ICS)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Shannon Index\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(1, 6)) + 
+  scale_y_continuous(breaks=seq(1, 6, 1)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-ICS-Shannon.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(ICS) %>%
+  summarise(median = median (shannon), IQR = IQR (shannon))
+
+wilcox.test(shannon ~ ICS, paired = FALSE, exact = TRUE)
+
+---------------------------------------------------------------Alpha Diversity Analyses (V7)----------------------------------------------------------------------------------
+alpha_diversity_final_V7 <- merge(alpha_diversity_V7, metadata_V7,by="SampleID")
+
+alpha_diversity_final_V7 <- alpha_diversity_final_V7 %>%
+  select(SampleID, Treatment_Arm, ICS, everything())
+
+alpha_diversity_final_V7 %>%
+  group_by(Treatment_Arm) %>%
+  tally()
+
+alpha_diversity_final_V7 %>%
+  group_by(ICS) %>%
+  tally()
+
+#Richness vs. Randomization Arm (V7)
+attach (alpha_diversity_final_V7)
+
+xlabs <- paste(levels(alpha_diversity_final_V7$Treatment_Arm),"\n(N=",table(alpha_diversity_final_V7$Treatment_Arm),")",sep="")
+
+ggplot(alpha_diversity_final_V7, aes(x=Treatment_Arm, y=observed_otus, fill=Treatment_Arm)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Observed ASVs\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 100)) + 
+  scale_y_continuous(breaks=seq(0, 100, 25)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-Disarm-Arm-Richness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_V7 %>%
+  group_by(Treatment_Arm) %>%
+  summarise(median = median (observed_otus), IQR = IQR (observed_otus))
+
+kruskal.test (observed_otus ~ Treatment_Arm)
+
+#Shannon Index vs. Randomization Arm (V7)
+ggplot(alpha_diversity_final_V7, aes(x=Treatment_Arm, y=shannon, fill=Treatment_Arm)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Shannon Index\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 6)) + 
+  scale_y_continuous(breaks=seq(0, 6, 1)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-Disarm-Arm-Shannon.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_V7 %>%
+  group_by(Treatment_Arm) %>%
+  summarise(median = median (shannon), IQR = IQR (shannon))
+
+kruskal.test (shannon ~ Treatment_Arm)
+
+#Richness vs. ICS status (V7)
+xlabs <- paste(levels(alpha_diversity_final_V7$ICS),"\n(N=",table(alpha_diversity_final_V7$ICS),")",sep="")
+
+ggplot(alpha_diversity_final_V7, aes(x=ICS, y=observed_otus, fill=ICS)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Observed ASVs\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 100)) + 
+  scale_y_continuous(breaks=seq(0, 100, 25)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-Disarm-ICS-Richness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_V7 %>%
+  group_by(ICS) %>%
+  summarise(median = median (observed_otus), IQR = IQR (observed_otus))
+
+wilcox.test(observed_otus ~ ICS, paired = FALSE, exact = TRUE)
+
+#Shannon Index vs. ICS status (V7)
+ggplot(alpha_diversity_final_V7, aes(x=ICS, y=shannon, fill=ICS)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Shannon Index\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(1, 6)) + 
+  scale_y_continuous(breaks=seq(1, 6, 1)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-Disarm-ICS-Shannon.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_V7 %>%
+  group_by(ICS) %>%
+  summarise(median = median (shannon), IQR = IQR (shannon))
+
+wilcox.test(shannon ~ ICS, paired = FALSE, exact = TRUE)
+
+---------------------------------------------------------------Beta Diversity Analyses (V3)----------------------------------------------------------------------------------
+#Creating phyloseq object with only V3 samples
+OTU_V3 = subset_samples (OTU, Visit=="V3")
+OTU_V3 = prune_taxa(taxa_sums (OTU_V3) > 0, OTU_V3)
+OTU_V3
+
+#Importing distance matrix (Unweighted Unifrac) from Qiime2 based on samples collected at V3
+Dist_UU_Q_V3 = read.csv(file="V3-UU-mafft-distance-matrix.txt", header=T, row.names = 1, sep='\t')
+Dist_UU_Q_V3  = as.dist(as(Dist_UU_Q_V3, "matrix"))
+class (Dist_UU_Q_V3)
+
+ordUU_qiime_V3 = ordinate(OTU_V3, method = "PCoA", distance = Dist_UU_Q_V3)
+plot_scree(ordUU_qiime_V3, "Scree Plot: V3-UU-QIIME2")
+
+-----------------------------------------------------Beta Diversity Analyses (V3 vs. Randomization Arm)-----------------------------------------------------------------------
+#Creating additional files 
+sampledf_V3 <- data.frame(sample_data(OTU_V3))
+groups_OTU_V3_arm <- sampledf_V3[["Treatment_Arm"]]
+table(groups_OTU_V3_arm)
+UU_disp_OTU_V3_q_arm <-betadisper(Dist_UU_Q_V3, groups_OTU_V3_arm, type=c("centroid"))
+
+#PCoA plot (Option 1)
+dev.off()
+labs <- paste("Dimension", 1:4, "(", round(100*UU_disp_OTU_V3_q_arm$eig / sum(UU_disp_OTU_V3_q_arm$eig), 2), "%)")
+labs
+tiff(file = "Output-diversity-V3/V3-UU-Qiime2-arm.tiff", height = 7, width = 7, units = "in", res = 800, compression = "lzw")
+plot(UU_disp_OTU_V3_q_arm, cex=1.2, pch=c(16,16,16), main="V3-UU-Qiime2-arm", cex.lab=1.6,
+     xlab="PCoA1 (21.1% Explained)" , ylab="PCoA2 (7.4% Explained)",
+     hull=FALSE, ellipse=FALSE, lwd=2, label=F, cex.lab = 1.4, font.lab = 2, font.axis=2.0, cex.axis=1.2,  
+     col = c("#F8766D", "#0093C4", "#7CAE00"))
+
+lines(c(-0.7, 0.8), c(0.0,0.0), type = "l", lty = "dashed", col = "black", lwd=1.2)
+lines(c(0.0,0.0), c(-0.6,0.5), type = "l", lty = "dashed", col = "black", lwd=1.2)
+ordispider(UU_disp_OTU_V3_q_arm, groups_OTU_V3_arm, lwd=0.5, col = c("#F8766D", "#0093C4", "#7CAE00"))
+points(UU_disp_OTU_V3_q_arm$centroids[,1:3], pch=15, cex=2, col=c("#F8766D", "#0093C4", "#7CAE00"))
+dev.off()
+
+#PCoA plot (Option 2)
+scrs <- scores(UU_disp_OTU_V3_q_arm$vectors, display = 'sites')
+scrs <- cbind(as.data.frame(scrs), Arm = sampledf_V3$Treatment_Arm)
+cent <- aggregate(cbind(PCoA1, PCoA2) ~ Arm, data = scrs, FUN = mean)
+
+segs <- merge(scrs, setNames(cent, c('Arm','oPCoA1','oPCoA2')),
+              by = 'Arm', sort = FALSE)
+
+ggplot(scrs, aes(x = PCoA1, y = PCoA2, color = Arm)) +
+  geom_segment(data = segs,
+               mapping = aes(xend = oPCoA1, yend = oPCoA2)) + # spiders
+  geom_point(data = cent, size = 5, shape=19) + #centroids
+  geom_point(size=3) +  # sample scores
+  labs (x = "\nPCoA1 (21.1% Explained)" , y="PCoA2 (7.4% Explained)\n") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  guides(shape=FALSE) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(plot.title = element_text(color="black", face="bold", size=20, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=20)) +
+  theme(axis.text.x = element_text(color="black", size=16, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=16, face="bold")) +
+  coord_equal() +
+  scale_color_manual(values=c("#F8766D", "#0093C4", "#7CAE00")) +
+  theme(panel.grid.minor=element_blank(), panel.grid.major=element_blank(), panel.background=element_blank(), 
+        axis.line = element_line(colour = "black"), panel.border = element_rect(colour = "black", fill=NA, size=1)) +
+  theme(legend.position=c(+0.15, 0.12)) +
+  theme(legend.text = element_text(colour="black", size = 12, face = "bold")) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") + 
+  geom_vline(xintercept=0, linetype="dashed", color = "black") +
+  theme(legend.title = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-UU-Qiime2-arm-using-ggplot2.tiff",
+       width = 7, height = 7, dpi = 800, units = "in", device='tiff', compression = "lzw")
+
+dev.off()
+
+## Within-group dispersion that PERMDISP is testing
+boxplot(UU_disp_OTU_V3_q_arm)
+TukeyHSD(UU_disp_OTU_V3_q_arm)
+
+# Adonis test 
+adonis(Dist_UU_Q_V3 ~ Treatment_Arm+Age+Sex+Smoking_Status, data = sampledf_V3, permutations=1000)
+
+# Homogeneity of dispersion test
+beta_UU_Arm_V3 <- betadisper(Dist_UU_Q_V3, sampledf_V3$Treatment_Arm)
+permutest(beta_UU_Arm_V3)
+
+-------------------------------------------------------------Beta Diversity Analyses (V3 vs. ICS Status)----------------------------------------------------------------------
+#Creating additional files 
+groups_OTU_V3_ics <- sampledf_V3[["ICS"]]
+UU_disp_OTU_V3_q_ics <-betadisper(Dist_UU_Q_V3, groups_OTU_V3_ics, type=c("centroid"))
+
+#PCoA plot (Option 1)
+labs <- paste("Dimension", 1:4, "(", round(100*UU_disp_OTU_V3_q_ics$eig / sum(UU_disp_OTU_V3_q_ics$eig), 2), "%)")
+labs
+tiff(file = "Output-diversity-V3/V3-UU-Qiime2-ics.tiff", height = 7, width = 7, units = "in", res = 800, compression = "lzw")
+plot(UU_disp_OTU_V3_q_ics, cex=1.2, pch=c(16,16), main="V3-UU-Qiime2-ics", cex.lab=1.6,
+     xlab="PCoA1 (21.1% Explained)" , ylab="PCoA2 (7.4% Explained)",
+     hull=FALSE, ellipse=FALSE, lwd=2, label=F, cex.lab = 1.4, font.lab = 2, font.axis=2.0, cex.axis=1.2,  
+     col = c("#F8766D", "#0093C4"))
+
+lines(c(-0.7, 0.8), c(0.0,0.0), type = "l", lty = "dashed", col = "black", lwd=1.2)
+lines(c(0.0,0.0), c(-0.6,0.5), type = "l", lty = "dashed", col = "black", lwd=1.2)
+ordispider(UU_disp_OTU_V3_q_ics, groups_OTU_V3_ics, lwd=0.5, col = c("#F8766D", "#0093C4"))
+points(UU_disp_OTU_V3_q_ics$centroids[,1:2], pch=15, cex=2, col=c("#F8766D", "#0093C4"))
+dev.off()
+
+#PCoA plot (Option 2)
+scrs <- scores(UU_disp_OTU_V3_q_ics$vectors, display = 'sites')
+scrs <- cbind(as.data.frame(scrs), ICS = sampledf_V3$ICS)
+cent <- aggregate(cbind(PCoA1, PCoA2) ~ ICS, data = scrs, FUN = mean)
+
+segs <- merge(scrs, setNames(cent, c('ICS','oPCoA1','oPCoA2')),
+              by = 'ICS', sort = FALSE)
+
+ggplot(scrs, aes(x = PCoA1, y = PCoA2, color = ICS)) +
+  geom_segment(data = segs,
+               mapping = aes(xend = oPCoA1, yend = oPCoA2)) + # spiders
+  geom_point(data = cent, size = 5, shape=19) + #centroids
+  geom_point(size=3) +  # sample scores
+  labs (x = "\nPCoA1 (21.1% Explained)" , y="PCoA2 (7.4% Explained)\n") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  guides(shape=FALSE) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(plot.title = element_text(color="black", face="bold", size=20, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=20)) +
+  theme(axis.text.x = element_text(color="black", size=16, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=16, face="bold")) +
+  coord_equal() +
+  scale_color_manual(values=c("#F8766D", "#0093C4")) +
+  theme(panel.grid.minor=element_blank(), panel.grid.major=element_blank(), panel.background=element_blank(), 
+        axis.line = element_line(colour = "black"), panel.border = element_rect(colour = "black", fill=NA, size=1)) +
+  theme(legend.position=c(+0.15, 0.12)) +
+  theme(legend.text = element_text(colour="black", size = 12, face = "bold")) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") + 
+  geom_vline(xintercept=0, linetype="dashed", color = "black") +
+  theme(legend.title = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-UU-Qiime2-ics-using-ggplot2.tiff",
+       width = 7, height = 7, dpi = 800, units = "in", device='tiff', compression = "lzw")
+
+dev.off()
+
+## Within-group dispersion that PERMDISP is testing
+boxplot(UU_disp_OTU_V3_q_ics)
+TukeyHSD(UU_disp_OTU_V3_q_ics)
+
+# Adonis test 
+adonis(Dist_UU_Q_V3 ~ ICS+Age+Sex+Smoking_Status, data = sampledf_V3, permutations=1000)
+
+# Homogeneity of dispersion test
+beta_UU_ICS_V3 <- betadisper(Dist_UU_Q_V3, sampledf_V3$ICS)
+permutest(beta_UU_ICS_V3)
+
+-------------------------------------------------------------Beta Diversity Analyses (V7 vs. Randomization Arm)---------------------------------------------------------------
+#Creating phyloseq object with only V7 samples
+OTU_V7 = subset_samples (OTU, Visit=="V7")
+OTU_V7 = prune_taxa(taxa_sums (OTU_V7) > 0, OTU_V7)
+OTU_V7
+
+#Importing distance matrix (Unweighted Unifrac) from Qiime2 based on samples collected at V7 
+Dist_UU_Q_V7 = read.csv(file="V7-UU-mafft-distance-matrix.txt", header=T, row.names = 1, sep='\t')
+Dist_UU_Q_V7  = as.dist(as(Dist_UU_Q_V7, "matrix"))
+class (Dist_UU_Q_V7)
+
+ordUU_qiime_V7 = ordinate(OTU_V7, method = "PCoA", distance = Dist_UU_Q_V7)
+plot_scree(ordUU_qiime_V7, "Scree Plot: V7-UU-QIIME2")
+
+#Creating additional files 
+sampledf_V7 <- data.frame(sample_data(OTU_V7))
+groups_OTU_V7_arm <- sampledf_V7[["Treatment_Arm"]]
+table(groups_OTU_V7_arm)
+UU_disp_OTU_V7_q_arm <-betadisper(Dist_UU_Q_V7, groups_OTU_V7_arm, type=c("centroid"))
+
+#PCoA plot (Option 1)
+dev.off()
+labs <- paste("Dimension", 1:4, "(", round(100*UU_disp_OTU_V7_q_arm$eig / sum(UU_disp_OTU_V7_q_arm$eig), 2), "%)")
+labs
+tiff(file = "Output-diversity-V7/V7-UU-Qiime2-arm.tiff", height = 7, width = 7, units = "in", res = 800, compression = "lzw")
+plot(UU_disp_OTU_V7_q_arm, cex=1.2, pch=c(16,16,16), main="V7-UU-Qiime2-arm", cex.lab=1.6,
+     xlab="PCoA1 (21.3% Explained)" , ylab="PCoA2 (7.0% Explained)",
+     hull=FALSE, ellipse=FALSE, lwd=2, label=F, cex.lab = 1.4, font.lab = 2, font.axis=2.0, cex.axis=1.2,  
+     col = c("#F8766D", "#0093C4", "#7CAE00"))
+
+lines(c(-0.7, 0.8), c(0.0,0.0), type = "l", lty = "dashed", col = "black", lwd=1.2)
+lines(c(0.0,0.0), c(-0.6,0.5), type = "l", lty = "dashed", col = "black", lwd=1.2)
+ordispider(UU_disp_OTU_V7_q_arm, groups_OTU_V7_arm, lwd=0.5, col = c("#F8766D", "#0093C4", "#7CAE00"))
+points(UU_disp_OTU_V7_q_arm$centroids[,1:3], pch=15, cex=2, col=c("#F8766D", "#0093C4", "#7CAE00"))
+dev.off()
+
+#PCoA plot (Option 2)
+scrs <- scores(UU_disp_OTU_V7_q_arm$vectors, display = 'sites')
+scrs <- cbind(as.data.frame(scrs), Arm = sampledf_V7$Treatment_Arm)
+cent <- aggregate(cbind(PCoA1, PCoA2) ~ Arm, data = scrs, FUN = mean)
+
+segs <- merge(scrs, setNames(cent, c('Arm','oPCoA1','oPCoA2')),
+              by = 'Arm', sort = FALSE)
+
+ggplot(scrs, aes(x = PCoA1, y = PCoA2, color = Arm)) +
+  geom_segment(data = segs,
+               mapping = aes(xend = oPCoA1, yend = oPCoA2)) + # spiders
+  geom_point(data = cent, size = 5, shape=19) + #centroids
+  geom_point(size=3) +  # sample scores
+  labs (x = "\nPCoA1 (21.1% Explained)" , y="PCoA2 (7.4% Explained)\n") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  guides(shape=FALSE) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(plot.title = element_text(color="black", face="bold", size=20, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=20)) +
+  theme(axis.text.x = element_text(color="black", size=16, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=16, face="bold")) +
+  coord_equal() +
+  scale_color_manual(values=c("#F8766D", "#0093C4", "#7CAE00")) +
+  theme(panel.grid.minor=element_blank(), panel.grid.major=element_blank(), panel.background=element_blank(), 
+        axis.line = element_line(colour = "black"), panel.border = element_rect(colour = "black", fill=NA, size=1)) +
+  theme(legend.position=c(+0.87, 0.87)) +
+  theme(legend.text = element_text(colour="black", size = 12, face = "bold")) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") + 
+  geom_vline(xintercept=0, linetype="dashed", color = "black") +
+  theme(legend.title = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-UU-Qiime2-arm-using-ggplot2.tiff",
+       width = 7, height = 7, dpi = 800, units = "in", device='tiff', compression = "lzw")
+
+dev.off()
+
+## Within-group dispersion that PERMDISP is testing
+boxplot(UU_disp_OTU_V7_q_arm)
+TukeyHSD(UU_disp_OTU_V7_q_arm)
+
+# Adonis test 
+adonis(Dist_UU_Q_V7 ~ Treatment_Arm+Age+Sex+Smoking_Status, data = sampledf_V7, permutations=1000)
+
+# Homogeneity of dispersion test
+beta_UU_Arm_V7 <- betadisper(Dist_UU_Q_V7, sampledf_V7$Treatment_Arm)
+permutest(beta_UU_Arm_V7)
+
+---------------------------------------------------------------Beta Diversity Analyses (V7 vs. ICS Status)--------------------------------------------------------------------
+#Creating additional files 
+groups_OTU_V7_ics <- sampledf_V7[["ICS"]]
+UU_disp_OTU_V7_q_ics <-betadisper(Dist_UU_Q_V7, groups_OTU_V7_ics, type=c("centroid"))
+
+#PCoA plot (Option 1)
+labs <- paste("Dimension", 1:4, "(", round(100*UU_disp_OTU_V7_q_ics$eig / sum(UU_disp_OTU_V7_q_ics$eig), 2), "%)")
+labs
+tiff(file = "Output-diversity-V7/V7-UU-Qiime2-ics.tiff", height = 7, width = 7, units = "in", res = 800, compression = "lzw")
+plot(UU_disp_OTU_V7_q_ics, cex=1.2, pch=c(16,16), main="V7-UU-Qiime2-ics", cex.lab=1.6,
+     xlab="PCoA1 (21.3% Explained)" , ylab="PCoA2 (7.0% Explained)",
+     hull=FALSE, ellipse=FALSE, lwd=2, label=F, cex.lab = 1.4, font.lab = 2, font.axis=2.0, cex.axis=1.2,  
+     col = c("#F8766D", "#0093C4"))
+
+lines(c(-0.7, 0.8), c(0.0,0.0), type = "l", lty = "dashed", col = "black", lwd=1.2)
+lines(c(0.0,0.0), c(-0.6,0.5), type = "l", lty = "dashed", col = "black", lwd=1.2)
+ordispider(UU_disp_OTU_V7_q_ics, groups_OTU_V7_ics, lwd=0.5, col = c("#F8766D", "#0093C4"))
+points(UU_disp_OTU_V7_q_ics$centroids[,1:2], pch=15, cex=2, col=c("#F8766D", "#0093C4"))
+dev.off()
+
+#PCoA plot (Option 2)
+scrs <- scores(UU_disp_OTU_V7_q_ics$vectors, display = 'sites')
+scrs <- cbind(as.data.frame(scrs), ICS = sampledf_V7$ICS)
+cent <- aggregate(cbind(PCoA1, PCoA2) ~ ICS, data = scrs, FUN = mean)
+
+segs <- merge(scrs, setNames(cent, c('ICS','oPCoA1','oPCoA2')),
+              by = 'ICS', sort = FALSE)
+
+ggplot(scrs, aes(x = PCoA1, y = PCoA2, color = ICS)) +
+  geom_segment(data = segs,
+               mapping = aes(xend = oPCoA1, yend = oPCoA2)) + # spiders
+  geom_point(data = cent, size = 5, shape=19) + #centroids
+  geom_point(size=3) +  # sample scores
+  labs (x = "\nPCoA1 (21.3% Explained)" , y="PCoA2 (7.0% Explained)\n") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  guides(shape=FALSE) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(plot.title = element_text(color="black", face="bold", size=20, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=20)) +
+  theme(axis.text.x = element_text(color="black", size=16, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=16, face="bold")) +
+  coord_equal() +
+  scale_color_manual(values=c("#F8766D", "#0093C4")) +
+  theme(panel.grid.minor=element_blank(), panel.grid.major=element_blank(), panel.background=element_blank(), 
+        axis.line = element_line(colour = "black"), panel.border = element_rect(colour = "black", fill=NA, size=1)) +
+  theme(legend.position=c(+0.15, 0.12)) +
+  theme(legend.text = element_text(colour="black", size = 12, face = "bold")) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") + 
+  geom_vline(xintercept=0, linetype="dashed", color = "black") +
+  theme(legend.title = element_blank())
+
+ggsave(filename = "Output-diversity-V7/V7-UU-Qiime2-ics-using-ggplot2.tiff",
+       width = 7, height = 7, dpi = 800, units = "in", device='tiff', compression = "lzw")
+
+dev.off()
+
+## Within-group dispersion that PERMDISP is testing
+boxplot(UU_disp_OTU_V7_q_ics)
+TukeyHSD(UU_disp_OTU_V7_q_ics)
+
+# Adonis test 
+adonis(Dist_UU_Q_V7 ~ ICS+Age+Sex+Smoking_Status, data = sampledf_V7, permutations=1000)
+
+# Homogeneity of dispersion test
+beta_UU_ICS_V7 <- betadisper(Dist_UU_Q_V7, sampledf_V7$ICS)
+permutest(beta_UU_ICS_V7)
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART VII - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
 
 rm(list=ls())
 library(phyloseq)
@@ -397,7 +1097,7 @@ options(scipen = 999)
 
 setwd("C:/Users/ferna/Desktop/R1-Disarm paper/Replication/Source_files")
 
-#####################################################################################Source files#############################################################################
+-----------------------------------------------------------------Source files-------------------------------------------------------------------------------------------------
 # Importing medatata
 metadata = read.csv(file="Disarm_metadata-V3-V7.txt", header=T, sep='\t')
 
@@ -519,8 +1219,7 @@ get_taxa_unique(OTU, "Genus")
 #Transform to relative abundances (Phyloseq object: OTU)
 OTU_RA = transform_sample_counts(OTU, function(x) x / sum(x))
 
-############################################################################################################################################################################
-##########################################Phylum analysis (Bronchoscopy samples from both visits - V3 and V7)###############################################################
+------------------------------------------------------Phylum analysis (Bronchoscopy samples from both visits - V3 and V7)-----------------------------------------------------
 #Phylum analysis
 #Creating csv file (phyloseq object: OTU)
 OTU_taxa_phyla =  OTU %>%
@@ -556,7 +1255,7 @@ median_phylum_top5_overall = median_phylum_overall [c(1:5),]
 #Creating a factor for ordering phylum in descending order 
 List_phylum = as.character(median_phylum_top5_overall$Phylum)
 
-#############################################################Phylum-V3 (Randomization Arm)#################################################################################
+-------------------------------------------------------------------------Phylum-V3 (Randomization Arm)------------------------------------------------------------------------
 OTU_V3 = subset_samples(OTU, Visit=="V3")
 OTU_V3 = prune_taxa(taxa_sums (OTU_V3) > 0, OTU_V3)
 OTU_V3
@@ -881,7 +1580,7 @@ V3_arm_kw_phylum %>%
 
 write.table(V3_arm_kw_phylum, file = "Output-taxa-V3/V3_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
 
-########################################################################Phylum-V3 (ICS status)###############################################################################
+------------------------------------------------------------------------------Phylum-V3 (ICS Status)-------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 ICS_status_V3 = merge_samples(OTU_V3, "ICS")
 ICS_status_V3 = prune_taxa(taxa_sums (ICS_status_V3) > 0, ICS_status_V3)
@@ -1061,8 +1760,7 @@ V3_ics_wilcoxon_phylum %>%
 write.table(V3_ics_wilcoxon_phylum, file = "Output-taxa-V3/V3_ics_phylum.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
 
-#############################################################################################################################################################################
-#########################################Genus analysis (Bronchoscopy samples from both visits - V3 and V7)##################################################################
+------------------------------------------------------Genus analysis (Bronchoscopy samples from both visits - V3 and V7)-----------------------------------------------------
 #Genus analysis
 #Creating csv file (phyloseq object: OTU)
 OTU_taxa_genus =  OTU %>%
@@ -1098,7 +1796,7 @@ median_genus_top15_overall = median_genus_overall [c(1:15),]
 #Creating a factor for ordering genus in descending order 
 List_genus = as.character(median_genus_top15_overall$Genus)
 
-#############################################################Genus-V3 (Randomization Arm)#################################################################################
+-------------------------------------------------------------------------Genus-V3 (Randomization Arm)------------------------------------------------------------------------
 #Creating csv file (phyloseq object: OTU_V3) 
 OTU_taxa_genus_V3 =  OTU_V3 %>%
   tax_glom(taxrank = "Genus") %>%                       # agglomerate at genus level
@@ -1403,7 +2101,7 @@ V3_arm_kw_genus %>%
 
 write.table(V3_arm_kw_genus, file = "Output-taxa-V3/V3_arm_genus.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
 
-########################################################################Genus-V3 (ICS status)###############################################################################
+------------------------------------------------------------------------------Genus-V3 (ICS Status)--------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 glom_g_V3_ics = tax_glom (ICS_status_V3, taxrank = 'Genus')
 glom_g_V3_ics_RA = transform_sample_counts (glom_g_V3_ics, function(x){x / sum(x)})
@@ -1579,7 +2277,7 @@ V3_ics_wilcoxon_genus %>%
 write.table(V3_ics_wilcoxon_genus, file = "Output-taxa-V3/V3_ics_genus.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
 
-#############################################################Phylum-V7 (Randomization Arm)#################################################################################
+-------------------------------------------------------------------------Phylum-V7 (Randomization Arm)------------------------------------------------------------------------
 OTU_V7 = subset_samples(OTU, Visit=="V7")
 OTU_V7 = prune_taxa(taxa_sums (OTU_V7) > 0, OTU_V7)
 OTU_V7
@@ -1901,7 +2599,7 @@ V7_arm_kw_phylum %>%
 
 write.table(V7_arm_kw_phylum, file = "Output-taxa-V7/V7_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
 
-########################################################################Phylum-V7 (ICS status)###############################################################################
+----------------------------------------------------------------------------Phylum-V7 (ICS Status)-----------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 ICS_status_V7 = merge_samples(OTU_V7, "ICS")
 ICS_status_V7 = prune_taxa(taxa_sums (ICS_status_V7) > 0, ICS_status_V7)
@@ -2081,7 +2779,7 @@ V7_ics_wilcoxon_phylum %>%
 write.table(V7_ics_wilcoxon_phylum, file = "Output-taxa-V7/V7_ics_phylum.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
 
-##################################################################Genus-V7 (Randomization Arm)#############################################################################
+-------------------------------------------------------------------------Genus-V7 (Randomization Arm)--------------------------------------------------------------------------
 #Creating csv file (phyloseq object: OTU_V7) 
 OTU_taxa_genus_V7 =  OTU_V7 %>%
   tax_glom(taxrank = "Genus") %>%                       # agglomerate at genus level
@@ -2380,7 +3078,7 @@ V7_arm_kw_genus %>%
 
 write.table(V7_arm_kw_genus, file = "Output-taxa-V7/V7_arm_genus.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
 
-########################################################################Genus-V7 (ICS status)###############################################################################
+----------------------------------------------------------------------------Genus-V7 (ICS Status)------------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 glom_g_V7_ics = tax_glom (ICS_status_V7, taxrank = 'Genus')
 glom_g_V7_ics_RA = transform_sample_counts (glom_g_V7_ics, function(x){x / sum(x)})
@@ -2555,474 +3253,3 @@ V7_ics_wilcoxon_genus %>%
 
 write.table(V7_ics_wilcoxon_genus, file = "Output-taxa-V7/V7_ics_genus.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-qiime tools import \
-  --type 'SampleData[PairedEndSequencesWithQuality]' \
-  --input-path Sputum-112-Samples \
-  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
-  --output-path Sputum.qza
-
-#Obtaining summary of sequencing data from sputum samples after being imported into QIIME2®
-qiime demux summarize \
-  --i-data Sputum.qza \
-  --o-visualization Sputum.qzv
-
-#Performing sequence quality control and feature table construction using DADA2 denoising algorithm
-#Note: the trimming options used below may be changed
-qiime dada2 denoise-paired \
-  --i-demultiplexed-seqs Sputum.qza \
-  --o-table Sputum-dada2.qza\
-  --p-n-threads 0 \
-  --o-representative-sequences Sputum-rep-seqs.qza \
-  --p-trim-left-f 13 \
-  --p-trim-left-r 13 \
-  --p-trunc-len-f 241 \
-  --p-trunc-len-r 175 \
-  --o-denoising-stats Sputum-denoising-stats.qza
-
-qiime feature-table summarize \
-  --i-table Sputum-dada2.qza \
-  --o-visualization Sputum-dada2.qzv
-
-qiime feature-table tabulate-seqs \
-  --i-data Sputum-rep-seqs.qza \
-  --o-visualization Sputum-rep-seqs.qzv
-
-qiime metadata tabulate \
-  --m-input-file Sputum-denoising-stats.qza \
-  --o-visualization Sputum-denoising-stats.qzv
-
-#Extraction Negative Controls
-#Place all fastq.gz files (both forward and reverse files from the seven extraction negative controls) into the same folder; 
- in this example: EN-7-Samples
-#Note: All sequencing data already demultiplexed!
-qiime tools import \
-  --type 'SampleData[PairedEndSequencesWithQuality]' \
-  --input-path EN-7-Samples \
-  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
-  --output-path EN.qza
-
-#Obtaining summary of sequencing data from extraction negative controls after being imported into QIIME2®
-qiime demux summarize \
-  --i-data EN.qza \
-  --o-visualization EN.qzv
-
-#Performing sequence quality control and feature table construction using DADA2 denoising algorithm
-qiime dada2 denoise-paired \
-  --i-demultiplexed-seqs EN.qza \
-  --o-table EN-dada2.qza\
-  --p-n-threads 0 \
-  --o-representative-sequences EN-rep-seqs.qza \
-  --p-trim-left-f 13 \
-  --p-trim-left-r 13 \
-  --p-trunc-len-f 241 \
-  --p-trunc-len-r 175 \
-  --o-denoising-stats EN-denoising-stats.qza
-
-qiime feature-table summarize \
-  --i-table EN-dada2.qza \
-  --o-visualization EN-dada2.qzv
-
-qiime feature-table tabulate-seqs \
-  --i-data EN-rep-seqs.qza \
-  --o-visualization EN-rep-seqs.qzv
-
-qiime metadata tabulate \
-  --m-input-file EN-denoising-stats.qza \
-  --o-visualization EN-denoising-stats.qzv
-
-#Selecting ASVs observed in at least 3 out of 7 extraction negative controls
-qiime feature-table filter-features \
-  --i-table EN-dada2.qza \
-  --p-min-samples 3 \
-  --o-filtered-table EN-data2-contingency-filtered-table.qza
-
-qiime feature-table summarize \
-  --i-table EN-data2-contingency-filtered-table.qza \
-  --o-visualization EN-data2-contingency-filtered-table.qzv
-
-#Visualize and export features (i.e., ASVs) observed in EN-data2-contingency-filtered-table.qza using Qiime2View 
-#After exporting, save this new file as Sequences-at-least3-controls.tsv
-#Keep only ASVs (EN-rep-seqs.qza) present in Sequences-at-least3-controls.tsv 
-qiime feature-table filter-seqs \
---i-data EN-rep-seqs.qza \
---m-metadata-file Sequences-at-least3-controls.tsv \
---p-no-exclude-ids \
---o-filtered-data EN-rep-seqs-atleast3-controls.qza
-
-qiime feature-table tabulate-seqs \
-  --i-data EN-rep-seqs-atleast3-controls.qza \
-  --o-visualization EN-rep-seqs-atleast3-controls.qzv
-
-#Obtaining taxonomic annotations for ASVs present in EN-rep-seqs-atleast3-controls.qza
-qiime feature-classifier classify-sklearn \
-  --i-classifier Silva132-16s_99_7_levels_classifier250-myprimers.qza \
-  --i-reads EN-rep-seqs-atleast3-controls.qza \
-  --o-classification Taxonomy-EN-rep-seqs-atleast3-controls.qza
-
-qiime metadata tabulate \
-  --m-input-file Taxonomy-EN-rep-seqs-atleast3-controls.qza \
-  --o-visualization Taxonomy-EN-rep-seqs-atleast3-controls.qzv
-
-#Removing ASVs (Sputum-dada2.qza) observed in Sequences-at-least3-controls.tsv
-qiime feature-table filter-features \
-  --i-table Sputum-dada2.qza \
-  --m-metadata-file Sequences-at-least3-controls.tsv \
-  --p-exclude-ids \
-  --o-filtered-table Filtered-Sputum-dada2.qza
-
-qiime feature-table summarize \
-  --i-table Filtered-Sputum-dada2.qza \
-  --o-visualization Filtered-Sputum-dada2.qzv
-
-#Removing noise (excluding singletons and low abundant features – frequency < 10 across all samples)
-qiime feature-table filter-features \
-  --i-table Filtered-Sputum-dada2.qza \
-  --p-min-samples 2 \
-  --p-min-frequency 10 \
-  --o-filtered-table Filtered-Sputum-table-contingency-table.qza
-
-qiime feature-table summarize \
-  --i-table Filtered-Sputum-table-contingency-table.qza \
-  --o-visualization Filtered-Sputum-table-contingency-table.qzv
-
-#Visualize and export features (i.e., ASVs) observed in Filtered-Sputum-table-contingency-table.qza using Qiime2View
-#After exporting, save this new file as "Seqs-to-keep-after-controls-at-least3-and-removal-low-abundant-features.tsv"
-#Keep only ASVs (Sputum-rep-seqs.qza) observed in Seqs-to-keep-after-controls-at-least3-and-removal-low-abundant-features.tsv 
-
-qiime feature-table filter-seqs \
---i-data Sputum-rep-seqs.qza \
---m-metadata-file Seqs-to-keep-after-controls-at-least3-and-removal-low-abundant-features.tsv \
---p-no-exclude-ids \
---o-filtered-data Filtered-Sputum-rep-seqs.qza
-
-qiime feature-table tabulate-seqs \
-  --i-data Filtered-Sputum-rep-seqs.qza \
-  --o-visualization Filtered-Sputum-rep-seqs.qzv
-
-#Performing taxonomic analysis (to identify ASVs with no taxonomic annotations at the phylum level)
-#Taxonomic database: Silva 132
-qiime feature-classifier classify-sklearn \
-  --i-classifier Silva132-16s_99_7_levels_classifier250-myprimers.qza \
-  --i-reads Filtered-Sputum-rep-seqs.qza \
-  --o-classification Sputum-Taxonomy132-before-phylum-annotation.qza
-
-qiime metadata tabulate \
-  --m-input-file Sputum-Taxonomy132-before-phylum-annotation.qza \
-  --o-visualization Sputum-Taxonomy132-before-phylum-annotation.qzv
-
-#Removing noise (excluding ASVs with no taxonomic annotation at the phylum level and contaminants - non-bacterial DNA)
-qiime taxa filter-table \
-  --i-table Filtered-Sputum-table-contingency-table.qza \
-  --i-taxonomy Sputum-Taxonomy132-before-phylum-annotation.qza \
-  --p-include D_1__\
-  --p-exclude mitochondria,chloroplast,archaea \
-  --o-filtered-table Filtered-Sputum-table-contingency-table-with-phylum.qza
-
-qiime feature-table summarize \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum.qza \
-  --o-visualization Filtered-Sputum-table-contingency-table-with-phylum.qzv
-
-#Removing samples with very low number of reads (these samples would be removed during rarefaction step for alpha and beta 
-diversity analyses)
-#Samples removed: COPD-049; COPD-086; COPD-090; COPD-093.
-
-qiime feature-table filter-samples \
---i-table Filtered-Sputum-table-contingency-table-with-phylum.qza \
---m-metadata-file Samples-to-not-keep-for-rarefaction-4.tsv \
---p-exclude-ids \
---o-filtered-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza
-
-qiime feature-table summarize \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --o-visualization Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qzv \
-  --m-sample-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv 
-
-#Visualize and export features (i.e., ASVs) observed in Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza 
-  using Qiime2View => save as Final-Sputum-features-to-keep.tsv
-#Keep only ASVs (Filtered-Sputum-rep-seqs.qza) present in Final-Sputum-features-to-keep.tsv
-
-qiime feature-table filter-seqs \
---i-data Filtered-Sputum-rep-seqs.qza \
---m-metadata-file Final-Sputum-features-to-keep.tsv \
---p-no-exclude-ids \
---o-filtered-data Final-Sputum-rep-seqs.qza
-
-qiime feature-table tabulate-seqs \
-  --i-data Final-Sputum-rep-seqs.qza \
-  --o-visualization Final-Sputum-rep-seqs.qzv
-
-#Making tree file (using Final-Sputum-rep-seqs.qza) 
-qiime alignment mafft \
-  --i-sequences Final-Sputum-rep-seqs.qza \
-  --o-alignment aligned-Final-Sputum-rep-seqs.qza
-
-qiime alignment mask \
-  --i-alignment aligned-Final-Sputum-rep-seqs.qza \
-  --o-masked-alignment masked-Final-Sputum-rep-seqs.qza 
-
-qiime phylogeny fasttree \
-  --i-alignment masked-Final-Sputum-rep-seqs.qza \
-  --o-tree unrooted-tree-Final-Sputum.qza
-
-qiime phylogeny midpoint-root \
-  --i-tree unrooted-tree-Final-Sputum.qza \
-  --o-rooted-tree rooted-tree-Final-Sputum.qza
-
-#Final taxonomic analysis
-#Taxonomic database: Silva 132
-qiime feature-classifier classify-sklearn \
-  --i-classifier Silva132-16s_99_7_levels_classifier250-myprimers.qza \
-   --i-reads Final-Sputum-rep-seqs.qza \
-  --o-classification Final-Taxonomy132-after-phylum-102-samples.qza
-
-qiime metadata tabulate \
-  --m-input-file Final-Taxonomy132-after-phylum-102-samples.qza \
-  --o-visualization Final-Taxonomy132-after-phylum-102-samples.qzv
-
-qiime taxa barplot \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --i-taxonomy Final-Taxonomy132-after-phylum-102-samples.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --o-visualization Final-taxa-bar-plots-Silva132-with-phylum-rarefaction.qzv
-
-#Alpha and beta diversity analyses – 102 patients 
-#Rarefaction cut off: 6,430 (lowest number of reads observed across all samples)
-
-qiime diversity core-metrics-phylogenetic \
-  --i-phylogeny rooted-tree-Final-Sputum.qza \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --p-sampling-depth 6430 \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --output-dir core-metrics-results
-
-#Move to Core-metric-results folder
-#Copy metadata file (102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv) to Core-metric-results folder
-#Alpha diversity 
-
-qiime diversity alpha-group-significance \
-  --i-alpha-diversity faith_pd_vector.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --o-visualization faith-pd-group-significance.qzv
-
-qiime diversity alpha-group-significance \
-  --i-alpha-diversity observed_otus_vector.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --o-visualization observed-otu-group-significance.qzv
-
-qiime diversity alpha-group-significance \
-  --i-alpha-diversity shannon_vector.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --o-visualization shannon-group-significance.qzv
-
-qiime diversity alpha-group-significance \
-  --i-alpha-diversity evenness_vector.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --o-visualization evenness-group-significance.qzv
-
-#Note: export the raw data for each alpha diversity metric and save into one single file 
-#There is an option to download the raw data when visualizing each .qzv file using Qiime2View.
-#Here, we are saving as “RTC-sputum-alpha-diversity-from-Qiime2.txt”
-
-#Beta diversity – Unweighted Unifrac
-qiime diversity beta-group-significance \
-  --i-distance-matrix unweighted_unifrac_distance_matrix.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --m-metadata-column Mortality_1Year\
-  --o-visualization Mortality-unweighted-unifrac-significance.qzv \
-  --p-pairwise
-
-#Beta-diversity - Weighted Unifrac
-qiime diversity beta-group-significance \
-  --i-distance-matrix weighted_unifrac_distance_matrix.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --m-metadata-column Mortality_1Year\
-  --o-visualization Mortality-weighted-unifrac-significance.qzv \
-  --p-pairwise
-
-#Beta-diversity – Bray Curtis
-qiime diversity beta-group-significance \
-  --i-distance-matrix bray_curtis_distance_matrix.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --m-metadata-column Mortality_1Year \
-  --o-visualization Mortality-bray-curtis-significance.qzv \
-  --p-pairwise
-
-#Beta-diversity - Jaccard
-qiime diversity beta-group-significance \
-  --i-distance-matrix jaccard_distance_matrix.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --m-metadata-column Mortality_1Year\
-  --o-visualization Mortality-jaccard-significance.qzv \
-  --p-pairwise
-
-#Beta-diversity Generalized Unifrac (alpha 0.5)
-#Plugin used: beta-phylogenetic-alt: Beta diversity (phylogenetic) - High Performance Computation
-#Move one directory up: cd .. 
-#Obtaining feature table at the same sampling depth (rarefaction cut-off: 6,430 reads)
-
-qiime feature-table rarefy \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --p-sampling-depth 6430 \
-  --o-rarefied-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qza
-
-qiime feature-table summarize \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qza \
-  --o-visualization Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qzv \
-  --m-sample-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv
-
-#Obtaining Generalized Unifrac distance matrix using rarefied feature table
-qiime diversity beta-phylogenetic-alt \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qza \
-  --i-phylogeny rooted-tree-Final-Sputum.qza \
-  --p-metric generalized_unifrac \
-  --p-alpha 0.5 \
-  --o-distance-matrix core-metrics-results/Mortality-alpha-0.5-generalized_unifrac_distance_matrix.qza
-
-#Move to Core-metric-results folder
-#Performing beta diversity analysis using Generalized Unifrac distance matrix (alpha 0.5)
-qiime diversity beta-group-significance \
-  --i-distance-matrix Mortality-alpha-0.5-generalized_unifrac_distance_matrix.qza \
-  --m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
-  --m-metadata-column Mortality_1Year \
-  --o-visualization Mortality-alpha-0.5-generalized_unifrac-significance.qzv \
-  --p-pairwise
-
-#Obtaining PCoA file and emperor plot related to Generalized Unifrac distance matrix (alpha 0.5)
-qiime diversity pcoa \
---i-distance-matrix Mortality-alpha-0.5-generalized_unifrac_distance_matrix.qza \
---o-pcoa Mortality-alpha-0.5-generalized_unifrac_pcoa_results.qza
-
-qiime emperor plot \
---i-pcoa Mortality-alpha-0.5-generalized_unifrac_pcoa_results.qza \
---m-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv \
---o-visualization Mortality-alpha-0.5-generalized_unifrac_emperor.qzv
-
-#Exporting Generalized Unifrac distance matrix (alpha 0.5)
-
-qiime tools export \
- --input-path Mortality-alpha-0.5-generalized_unifrac_distance_matrix.qza \
- --output-path exported
-
-#Renaming exported GU distance matrix
-mv exported/distance-matrix.tsv exported/GU-distance-matrix.txt
-
-#Move one directory up: cd .. 
-#Collapsing Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza at the genus level
-#Taxonomic database: Silva 132
-
-qiime taxa collapse \
-  --i-table Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --i-taxonomy Final-Taxonomy132-after-phylum-102-samples.qza \
-  --p-level 6 \
-  --o-collapsed-table Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza
-
-qiime feature-table summarize \
-  --i-table Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --o-visualization Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qzv \
-  --m-sample-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv 
-
-#Exporting collapsed feature table (Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza): 
-  provides number of reads for all taxa (up to genus level) across all samples (according to SampleID)
-
-qiime tools export \
- --input-path Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
- --output-path Collapsed-Table
-
-#Renaming exported collapsed feature table
-mv Collapsed-Table/feature-table.biom Collapsed-Table/Collapsed-all-samples-method.biom
-
-#Converting BIOM file (Collapsed-all-samples-method.biom) to tsv format
-biom convert -i Collapsed-Table/Collapsed-all-samples-method.biom \
-  -o Collapsed-Table/collapsed-all-samples.tsv \
-  --to-tsv --header-key taxonomy
-
-#Creating presence or absence feature table from Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza
-qiime feature-table presence-absence \
---i-table Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
---o-presence-absence-table Binary-Collapsed-Table/Binary-Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
---output-dir Binary-Collapsed-Table
-
-qiime feature-table summarize \
-  --i-table Binary-Collapsed-Table/Binary-Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
-  --o-visualization Binary-Collapsed-Table/Binary-Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qzv \
-  --m-sample-metadata-file 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.tsv
-
-#Exporting binary collapsed feature table (Binary-Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza): provides information regarding presence or absence for all taxa (up to genus level) across all samples (according to SampleID)
-
-qiime tools export \
- --input-path Binary-Collapsed-Table/Binary-Collapsed-Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
- --output-path Binary-Collapsed-Table
-
-#Renaming exported binary collapsed feature table
-mv Binary-Collapsed-Table/feature-table.biom Binary-Collapsed-Table/Binary-Collapsed-all-samples-method.biom
-
-#Converting BIOM file (Binary-Collapsed-all-samples-method.biom) to tsv format
-biom convert -i Binary-Collapsed-Table/Binary-Collapsed-all-samples-method.biom \
-  -o Binary-Collapsed-Table/Binary-Collapsed-all-samples.tsv \
-  --to-tsv --header-key taxonomy
-
-#Exporting Feature Table (Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza) as BIOM file
-qiime tools export \
- --input-path Filtered-Sputum-table-contingency-table-with-phylum-rarefaction.qza \
- --output-path Exported
-
-#Renaming BIOM file to 102-Sputum-not-rarefied.biom
-mv Exported/feature-table.biom Exported/102-Sputum-not-rarefied.biom
-
-#Exporting Taxonomic File (Final-Taxonomy132-after-phylum-102-samples.qza) 
-qiime tools export \
- --input-path Final-Taxonomy132-after-phylum-102-samples.qza \
- --output-path Exported
-
-#Change the first line of taxonomy.tsv (i.e., the header) to: #OTUID; taxonomy; confidence
-#Save this new file as "taxonomy1.tsv"
-#Editing taxonomy1.tsv to remove D_0__; D_1__,… (Optional)
-#Adding taxonomic information to BIOM file (102-Sputum-not-rarefied.biom)
-
-biom add-metadata -i Exported/102-Sputum-not-rarefied.biom -o Exported/102-Sputum-not-rarefied-with-taxonomy.biom --observation-metadata-fp Exported/taxonomy1.tsv --sc-separated taxonomy
-
-#Exporting Feature Table – rarefied (Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qza) as BIOM file
-qiime tools export \
- --input-path Filtered-Sputum-table-contingency-table-with-phylum-rarefaction-6430.qza \
- --output-path Exported
-
-#Renaming BIOM file to 102-Sputum-rarefied.biom
-mv Exported/feature-table.biom Exported/102-Sputum-rarefied.biom
-
-#Adding taxonomic information to BIOM file (102-Sputum-rarefied.biom)
-biom add-metadata -i Exported/102-Sputum-rarefied.biom -o Exported/102-Sputum-rarefied-with-taxonomy.biom --observation-metadata-fp Exported/taxonomy1.tsv --sc-separated taxonomy
-
-#Exporting Tree file (rooted-tree-Final-Sputum.qza) 
-qiime tools export \
- --input-path rooted-tree-Final-Sputum.qza \
- --output-path Exported
-
-Part II – R 
-#Create a new folder (In our case: Sputum-Mortality-Paper-codes)
-#Copy the following files to this folder:
-1) Metadata file: 102-patients-Sputum-25-AUG-2018-all-1-year-follow-up.txt (change extension from .tsv to .txt)
-2) BIOM file (rarefied): 102-Sputum-rarefied-with-taxonomy.biom (for alpha and beta diversity analyses)
-3) BIOM file (not rarefied): 102-Sputum-not-rarefied-with-taxonomy.biom (for making taxa bar plots at phylum and genus levels)
-4) Tree file: tree.nwk
-5) File with values of alpha diversity metrics (Richness, Shannon, Evenness and Faith’s PD - obtained from QIIME2): 
-   RTC-sputum-alpha-diversity-from-Qiime2.txt (This is Optional!)
-6) Generalized Unifrac distance matrix (alpha=0.5) exported from QIIME2: GU-distance-matrix.txt
