@@ -9,6 +9,6 @@ Sequence data from all BC samples (n=119) used in this analysis have been submit
 
 #In the Directory: DISARM/Files_used_analysis, the data files used for analysis in the manuscript "Effects of inhaled corticosteroid/long acting beta-2 agonist combination on the airway microbiome of patients with COPD: a randomized controlled trial (DISARM)" are available for download. This manuscript has been submitted to the Blue Journal (under revision; R1).
 
-#In DISARM/Code-DISARM paper
+#In DISARM/Code-DISARM paper, the analytical codes related to both Qiime2 and R environments are available for download.
 
 #Questions: Please contact Fernando Studart (fernando.studart@hli.ubc.ca).
