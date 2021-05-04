@@ -3,11 +3,11 @@ Center for Heart Lung Innovation – University of British Columbia
 E-mail: Fernando.Studart@hli.ubc.ca
 
 NOTE 1: SEQUENCING DATA COMES FROM TWO BATCHES: 
-- BATCH 1: All samples collected at both time points were included in this batch, except for those related to Disarm participant 85 (who was randomized to the Formoterol arm). 
-For this participant, his samples collected during the first bronchoscopy visit were also included in batch 1. 
+- BATCH 1: All samples collected at both time points (V3 and V7) were included in this batch, except for those related to Disarm participant 85 (who was randomized to the 
+Formoterol arm). For this participant, his samples collected during the first bronchoscopy visit were also included in Batch 1. 
 - Batch 2: Contains all samples collected at the second bronchocopy visit from the Disarm participant 85. 
 
-NOTE 2: File "Attributes.tsv" available in folder DISARM/Files_used_analysis indicates which samples were originated from each batch.
+NOTE 2: File "Attributes.tsv" available in folder DISARM/Files_used_analysis indicates which samples were sequenced in each batch.
 
 NOTE 3: V3 STANDS FOR VISIT V3 (FIRST BRONCHOSCOPY VISIT), AND V7 STANDS FOR VISIT V7 (SECOND BRONCHOSCOPY VISIT).
 
