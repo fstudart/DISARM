@@ -7,6 +7,6 @@ Following informed consent, all patients were treated with formoterol (12 mcg BI
 
 Sequence data from all BC samples (n=119) used in this analysis have been submitted to the National Center for Biotechnology Information’s Sequence Read Archive (SRA) under the following accession numbers: BioProject PRJNA685554.
 
-#In the Directory: Disarm/Files_used_analysis, the data files used for analysis in the manuscript "Effects of inhaled corticosteroid/long acting beta-2 agonist combination on the airway microbiome of patients with COPD: a randomized controlled trial (DISARM)", are available for download. This manuscript has been submitted to the Blue Journal (under revision; R1).
+#In the Directory: Disarm/Files_used_analysis, the data files used for analysis in the manuscript "Effects of inhaled corticosteroid/long acting beta-2 agonist combination on the airway microbiome of patients with COPD: a randomized controlled trial (DISARM)" are available for download. This manuscript has been submitted to the Blue Journal (under revision; R1).
 
 #Questions: Please contact Fernando Studart (fernando.studart@hli.ubc.ca).
