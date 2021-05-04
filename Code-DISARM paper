@@ -358,26 +358,147 @@ qiime taxa barplot \
   --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
   --i-taxonomy Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
   --m-metadata-file Disarm_Library_Prep_full_simplified_combined.txt \
-  --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contingency-phyla.qzv
+  --o-visualization Disarm-only-taxa-bar-plots-both-runs-after-decontam-contingency-phyla-Silva132.qzv
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 PART IV - DIVERSITY ANALYSES INCLUDING LONGITUDINAL MICROBIOME COMPARISONS BETWEEN V3 AND V7 SAMPLES / Environment: QIIME2 (2020.2)
 
+#Generating a phylogenetic tree for diversity analysis
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences Disarm-only-rep-seqs-both-runs-after-decontam-contingency-phyla.qza \
+  --output-dir mafft-fasttree-output
 
+#Diversity analysis
+#Note: Copy "Disarm_metadata-V3-V7-simplified-for-R1.txt" to core-metrics-results folder
+cd core-metrics-results
 
+qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny mafft-fasttree-output/rooted_tree.qza \
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
+  --p-sampling-depth 3101 \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --output-dir core-metrics-results
 
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity faith_pd_vector.qza \
+  --m-metadata-file  Disarm_metadata-V3-V7-simplified-for-R1.txt  \
+  --o-visualization V3-V7-faith-pd-group-significance.qzv
 
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity observed_otus_vector.qza \
+  --m-metadata-file  Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --o-visualization V3-V7-observed-otu-group-significance.qzv
 
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity shannon_vector.qza \
+  --m-metadata-file  Disarm_metadata-V3-V7-simplified-for-R1.txt  \
+  --o-visualization V3-V7-shannon-group-significance.qzv
 
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity evenness_vector.qza \
+  --m-metadata-file  Disarm_metadata-V3-V7-simplified-for-R1.txt  \
+  --o-visualization V3-V7-evenness-group-significance.qzv
 
+qiime metadata tabulate \
+  --m-input-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-input-file observed_otus_vector.qza \
+  --m-input-file shannon_vector.qza \
+  --m-input-file evenness_vector.qza \
+  --m-input-file faith_pd_vector.qza \
+  --o-visualization Both-visits-alpha-diversity-from-Qiime2.qzv 
 
+Note: Beta diversity analyses performed using the vegan and phyloseq packages.
 
+#Longitudinal analyses
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file observed_otus_vector.qza \
+  --p-metric observed_otus \
+  --p-group-column Treatment_Arm \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization observed-otus-pairwise-differences-arm.qzv
 
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file observed_otus_vector.qza \
+  --p-metric observed_otus \
+  --p-group-column ICS \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization observed-otus-pairwise-differences-ics.qzv
+
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file shannon_vector.qza \
+  --p-metric shannon \
+  --p-group-column Treatment_Arm \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization shannon-pairwise-differences-arm.qzv
+
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file shannon_vector.qza \
+  --p-metric shannon \
+  --p-group-column ICS \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization shannon-pairwise-differences-ics.qzv
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 PART V - EXPORTING SOURCE FILES / Environment: QIIME2 (2020.2)
 
+cd ..
 
+#Removing sample "320067-V7-BC" due to low number or reads
+qiime feature-table filter-samples \
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
+  --p-min-frequency 3000 \
+  --o-filtered-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qza 
+
+qiime feature-table summarize \
+  --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qza \
+  --m-sample-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --o-visualization Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qzv
+  
+#Exporting BIOM file (not subsampled)  
+qiime tools export \
+--input-path Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qza  \
+--output-path exported
+
+mv exported/feature-table.biom exported/Disarm-table.biom
+
+#Exporting Tree file  
+qiime tools export \
+--input-path mafft-fasttree-output/rooted_tree.qza \
+--output-path exported
+
+mv exported/tree.nwk  exported/Disarm-tree-mafft.nwk
+
+#Exporting file with taxonomic classifications
+qiime tools export \
+--input-path Disarm-only-rep-seqs-both-runs-after-decontam-contingency-taxonomy.qza \
+--output-path exported
+
+echo -e "#OTUID\ttaxonomy\tconfidence" | cat - exported/taxonomy.tsv > exported/taxonomy1.tsv
+
+sed -i '2d' exported/taxonomy1.tsv
+
+#Adding taxonomic assignments to biom file
+biom add-metadata -i exported/Disarm-table.biom -o exported/Disarm-table-with-taxonomy.biom --observation-metadata-fp exported/taxonomy1.tsv --sc-separated taxonomy
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 PART VI - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
