@@ -1750,6 +1750,7 @@ V3_arm_kw_phylum %>%
   knitr::kable(format = "markdown")
 
 write.table(V3_arm_kw_phylum, file = "Output-taxa-V3/V3_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
+
 ------------------------------------------------------------------------------Phylum-V3 (ICS Status)-------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 ICS_status_V3 = merge_samples(OTU_V3, "ICS")
@@ -3117,6 +3118,7 @@ V7_ics_wilcoxon_phylum %>%
 
 write.table(V7_ics_wilcoxon_phylum, file = "Output-taxa-V7/V7_ics_phylum.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
+
 -------------------------------------------------------------------------Genus-V7 (Randomization Arm)--------------------------------------------------------------------------
 #Creating csv file (phyloseq object: OTU_V7) 
 OTU_taxa_genus_V7 =  OTU_V7 %>%
