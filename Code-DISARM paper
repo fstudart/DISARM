@@ -1182,9 +1182,10 @@ beta_UU_ICS_V7 <- betadisper(Dist_UU_Q_V7, sampledf_V7$ICS)
 permutest(beta_UU_ICS_V7)
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PART VII - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
+PART VII -  TAXONOMIC ANALYSES / Environment: R (4.02)
 
 rm(list=ls())
+
 library(phyloseq)
 library(ggplot2)
 library(cowplot)
@@ -1428,11 +1429,18 @@ write.table(dat_V3_RA, file = "Output-taxa-V3/V3-RA-OTU_taxa_phyla_others.csv", 
 
 #Creating a merged dataframe by phylum with mean/median relative abundances and IQR (phyloseq object: OTU_V3) 
 median_phylum_V3 = ddply(dat_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                            IQR=IQR(x$Abundance)))
+                                                            IQR=IQR(x$Abundance),
+                                                            Quantile=quantile(x$Abundance)))
+
+median_phylum_V3 = median_phylum_V3 [,-c(4,6,8)]
+colnames (median_phylum_V3)[4] = "Q1"
+colnames (median_phylum_V3)[5] = "Q3"
 
 median_phylum_V3$RA_median_phylum = median_phylum_V3$RA_median_phylum *100
 median_phylum_V3$IQR = median_phylum_V3$IQR *100
-median_phylum_V3  = median_phylum_V3 %>% arrange(desc(RA_median_phylum))
+median_phylum_V3$Q1 = median_phylum_V3$Q1*100
+median_phylum_V3$Q3 = median_phylum_V3$Q3*100
+median_phylum_V3 = median_phylum_V3 %>% arrange(desc(RA_median_phylum))
 
 phylum_graph_V3 = dat_V3 %>%
   group_by(Phylum) %>%
@@ -1440,7 +1448,7 @@ phylum_graph_V3 = dat_V3 %>%
              median_reads_phylum = median(Abundance))
 
 phylum_graph_V3 = phylum_graph_V3 %>%
-  mutate (total_reads_overall  = sum(total_reads_phylum))
+  mutate (total_reads_overall = sum(total_reads_phylum))
 
 phylum_graph_V3 = phylum_graph_V3 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
@@ -1448,17 +1456,20 @@ phylum_graph_V3 = phylum_graph_V3 %>%
 phylum_graph_V3 = merge (phylum_graph_V3, median_phylum_V3, by="Phylum")
 phylum_graph_V3 = arrange(phylum_graph_V3, desc(RA_median_phylum))
 row.names(phylum_graph_V3) = NULL
-
 phylum_graph_V3_export = phylum_graph_V3 [,-c(3,4)]
-colnames (phylum_graph_V3_export) = c("Phylum", "Total Reads", "RA-Mean", "RA-Median", "IQR")
 
 is.num = sapply(phylum_graph_V3_export, is.numeric)
-phylum_graph_V3_export [is.num] = lapply(phylum_graph_V3_export [is.num], round, 2)
+phylum_graph_V3_export [is.num] = lapply(phylum_graph_V3_export [is.num], round, 1)
 
-kable(phylum_graph_V3_export) %>%
+phylum_graph_V3_export$Q1_Q3 = paste(phylum_graph_V3_export$Q1, phylum_graph_V3_export$Q3, sep="; ")
+phylum_graph_V3_export = phylum_graph_V3_export %>%
+  select (Phylum, total_reads_phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+colnames (phylum_graph_V3_export) = c("Phylum", "Total_Reads", "Mean_Abundance", "Median_Abundance", "Q1; Q3", "IQR")
+
+kable(phylum_graph_V3_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(phylum_graph_V3_export) %>%
+kable(phylum_graph_V3_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T) %>%
   save_kable(file = "Output-taxa-V3/V3-All-samples-phylum-merged-table.html", self_contained = T)
 
@@ -1539,7 +1550,7 @@ p + theme(panel.background = element_blank(),
           plot.margin = unit(c(1,2,1,2), "cm"))
 
 ggsave(filename = "Output-taxa-V3/V3-Arm-phylum-3groups.png",
-       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+       width = 8.5, height = 6.5, dpi = 300, units = "in", device='png')
 
 #Creating subsets tables according to the Randomization Arm
 #Flu + Salm (V3) - Phylum
@@ -1552,12 +1563,19 @@ Adv_V3_RA = dat_V3_RA %>%
   droplevels()
 
 Adv_V3_median = ddply(Adv_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                            IQR=IQR(x$Abundance)))
+                                                            IQR=IQR(x$Abundance),
+                                                            Quantile=quantile(x$Abundance)))
+
+Adv_V3_median = Adv_V3_median [,-c(4,6,8)]
+colnames (Adv_V3_median)[4] = "Q1"
+colnames (Adv_V3_median)[5] = "Q3"
 
 Adv_V3_median$RA_median_phylum = Adv_V3_median$RA_median_phylum *100
 Adv_V3_median$IQR = Adv_V3_median$IQR *100
+Adv_V3_median$Q1 = Adv_V3_median$Q1*100
+Adv_V3_median$Q3 = Adv_V3_median$Q3*100
+
 Adv_V3_median$Phylum = factor(Adv_V3_median$Phylum, levels = order_phylum)
-Adv_V3_median = Adv_V3_median[-6,]
 
 Adv_graph_V3 =  Adv_V3 %>%
   group_by(Phylum) %>%
@@ -1577,8 +1595,14 @@ row.names(Adv_graph_V3) = NULL
 Adv_graph_V3$Group = as.factor("Flu + Salm")
 
 Adv_graph_V3 = Adv_graph_V3 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
+is.num = sapply(Adv_graph_V3, is.numeric)
+Adv_graph_V3 [is.num] = lapply(Adv_graph_V3 [is.num], round, 1)
+
+Adv_graph_V3$Q1_Q3 = paste(Adv_graph_V3$Q1, Adv_graph_V3$Q3, sep="; ")
+Adv_graph_V3 = Adv_graph_V3 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
 Adv_graph_V3 = Adv_graph_V3 %>%
   slice(match(order_phylum, Phylum))
 
@@ -1592,12 +1616,19 @@ Symb_V3_RA = dat_V3_RA %>%
   droplevels()
 
 Symb_V3_median = ddply(Symb_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                          IQR=IQR(x$Abundance),
+                                                          Quantile=quantile(x$Abundance)))
+
+Symb_V3_median = Symb_V3_median [,-c(4,6,8)]
+colnames (Symb_V3_median)[4] = "Q1"
+colnames (Symb_V3_median)[5] = "Q3"
 
 Symb_V3_median$RA_median_phylum = Symb_V3_median$RA_median_phylum *100
 Symb_V3_median$IQR = Symb_V3_median$IQR *100
+Symb_V3_median$Q1 = Symb_V3_median$Q1*100
+Symb_V3_median$Q3 = Symb_V3_median$Q3*100
+
 Symb_V3_median$Phylum = factor(Symb_V3_median$Phylum, levels = order_phylum)
-Symb_V3_median  =Symb_V3_median [-6,]
 
 Symb_graph_V3 =  Symb_V3 %>%
   group_by(Phylum) %>%
@@ -1611,15 +1642,21 @@ Symb_graph_V3 = Symb_graph_V3 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
 
 Symb_graph_V3 = merge (Symb_graph_V3, Symb_V3_median, by="Phylum")
-Symb_graph_V3$Phylum = factor(Symb_graph_V3$Phylum, levels = order_phylum)
+Symb_graph_V3$Phylum = factor(Symb_graph_V3$Phylum , levels = order_phylum)
 row.names(Symb_graph_V3) = NULL
 
-Symb_graph_V3$Group = as.factor("Flu + Salm")
+Symb_graph_V3$Group = as.factor("Bud + Form")
 
 Symb_graph_V3 = Symb_graph_V3 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Symb_graph_V3  = Symb_graph_V3  %>%
+is.num = sapply(Symb_graph_V3, is.numeric)
+Symb_graph_V3 [is.num] = lapply(Symb_graph_V3 [is.num], round, 1)
+
+Symb_graph_V3$Q1_Q3 = paste(Symb_graph_V3$Q1, Symb_graph_V3$Q3, sep="; ")
+Symb_graph_V3 = Symb_graph_V3 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Symb_graph_V3 = Symb_graph_V3 %>%
   slice(match(order_phylum, Phylum))
 
 #Form (V3) - Phylum
@@ -1632,12 +1669,19 @@ Oxeze_V3_RA = dat_V3_RA %>%
   droplevels()
 
 Oxeze_V3_median = ddply(Oxeze_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                             IQR=IQR(x$Abundance)))
+                                                            IQR=IQR(x$Abundance),
+                                                            Quantile=quantile(x$Abundance)))
+
+Oxeze_V3_median = Oxeze_V3_median [,-c(4,6,8)]
+colnames (Oxeze_V3_median)[4] = "Q1"
+colnames (Oxeze_V3_median)[5] = "Q3"
 
 Oxeze_V3_median$RA_median_phylum = Oxeze_V3_median$RA_median_phylum *100
 Oxeze_V3_median$IQR = Oxeze_V3_median$IQR *100
+Oxeze_V3_median$Q1 = Oxeze_V3_median$Q1*100
+Oxeze_V3_median$Q3 = Oxeze_V3_median$Q3*100
+
 Oxeze_V3_median$Phylum = factor(Oxeze_V3_median$Phylum, levels = order_phylum)
-Oxeze_V3_median = Oxeze_V3_median [-6,]
 
 Oxeze_graph_V3 =  Oxeze_V3 %>%
   group_by(Phylum) %>%
@@ -1651,30 +1695,36 @@ Oxeze_graph_V3 = Oxeze_graph_V3 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
 
 Oxeze_graph_V3 = merge (Oxeze_graph_V3, Oxeze_V3_median, by="Phylum")
-Oxeze_graph_V3$Phylum = factor(Oxeze_graph_V3$Phylum, levels = order_phylum)
+Oxeze_graph_V3$Phylum = factor(Oxeze_graph_V3$Phylum , levels = order_phylum)
 row.names(Oxeze_graph_V3) = NULL
 
 Oxeze_graph_V3$Group = as.factor("Form")
 
 Oxeze_graph_V3 = Oxeze_graph_V3 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Oxeze_graph_V3  = Oxeze_graph_V3  %>%
+is.num = sapply(Oxeze_graph_V3, is.numeric)
+Oxeze_graph_V3 [is.num] = lapply(Oxeze_graph_V3 [is.num], round, 1)
+
+Oxeze_graph_V3$Q1_Q3 = paste(Oxeze_graph_V3$Q1, Oxeze_graph_V3$Q3, sep="; ")
+Oxeze_graph_V3 = Oxeze_graph_V3 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Oxeze_graph_V3 = Oxeze_graph_V3 %>%
   slice(match(order_phylum, Phylum))
 
 #Table Phylum - V3 (Randomization Arm)
-Table_V3_Arm = cbind (Symb_graph_V3 [,c(2,3,4,5)], Adv_graph_V3 [,c(3,4,5)], Oxeze_graph_V3 [,c(3,4,5)])
-colnames (Table_V3_Arm) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V3_Arm = cbind (Symb_graph_V3 [,c(2,3,4,5,6)], Adv_graph_V3 [,c(3,4,5,6)], Oxeze_graph_V3 [,c(3,4,5,6)])
+colnames (Table_V3_Arm) = c("Phylum", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median",  
+                            "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V3_Arm, is.numeric)
-Table_V3_Arm [is.num] = lapply(Table_V3_Arm [is.num], round, 2)
+Table_V3_Arm = Table_V3_Arm [-6, ] #Removing "Others" category
 
-kable(Table_V3_Arm) %>%
+kable(Table_V3_Arm, align = "lcccccccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V3_Arm) %>%
+kable(Table_V3_Arm, align = "lcccccccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 4,"Flu + Salm" = 4, "Form" = 4)) %>%
   save_kable(file = "Output-taxa-V3/Phylum-V3-table-Arm.html", self_contained = T)
 
 #Comparing Randomization Arm versus Phylum 
@@ -1700,7 +1750,6 @@ V3_arm_kw_phylum %>%
   knitr::kable(format = "markdown")
 
 write.table(V3_arm_kw_phylum, file = "Output-taxa-V3/V3_arm_phylum.results.csv", sep = ",", qmethod = "double", row.names=FALSE)
-
 ------------------------------------------------------------------------------Phylum-V3 (ICS Status)-------------------------------------------------------------------------
 #Creating a merged dataframe for plots according to ICS status
 ICS_status_V3 = merge_samples(OTU_V3, "ICS")
@@ -1775,12 +1824,18 @@ ICS_V3_RA = dat_V3_RA %>%
   droplevels()
 
 ICS_V3_median = ddply(ICS_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                         IQR=IQR(x$Abundance)))
+                                                         IQR=IQR(x$Abundance),
+                                                         Quantile=quantile(x$Abundance)))
+
+ICS_V3_median = ICS_V3_median [,-c(4,6,8)]
+colnames (ICS_V3_median)[4] = "Q1"
+colnames (ICS_V3_median)[5] = "Q3"
 
 ICS_V3_median$RA_median_phylum = ICS_V3_median$RA_median_phylum *100
 ICS_V3_median$IQR = ICS_V3_median$IQR *100
+ICS_V3_median$Q1 = ICS_V3_median$Q1*100
+ICS_V3_median$Q3 = ICS_V3_median$Q3*100
 ICS_V3_median$Phylum = factor(ICS_V3_median$Phylum, levels = order_phylum)
-ICS_V3_median = ICS_V3_median [-6,]
 
 ICS_graph_V3 =  ICS_V3 %>%
   group_by(Phylum) %>%
@@ -1800,9 +1855,15 @@ row.names(ICS_graph_V3) = NULL
 ICS_graph_V3$Group = as.factor("ICS")
 
 ICS_graph_V3 = ICS_graph_V3 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-ICS_graph_V3  = ICS_graph_V3  %>%
+is.num = sapply(ICS_graph_V3, is.numeric)
+ICS_graph_V3 [is.num] = lapply(ICS_graph_V3 [is.num], round, 1)
+
+ICS_graph_V3$Q1_Q3 = paste(ICS_graph_V3$Q1, ICS_graph_V3$Q3, sep="; ")
+ICS_graph_V3 = ICS_graph_V3 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+ICS_graph_V3 = ICS_graph_V3 %>%
   slice(match(order_phylum, Phylum))
 
 #Non-ICS (V3) - Phylum
@@ -1815,12 +1876,18 @@ Non_ICS_V3_RA = dat_V3_RA %>%
   droplevels()
 
 Non_ICS_V3_median = ddply(Non_ICS_V3_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                                 IQR=IQR(x$Abundance)))
+                                                                IQR=IQR(x$Abundance),
+                                                                Quantile=quantile(x$Abundance)))
+
+Non_ICS_V3_median = Non_ICS_V3_median [,-c(4,6,8)]
+colnames (Non_ICS_V3_median)[4] = "Q1"
+colnames (Non_ICS_V3_median)[5] = "Q3"
 
 Non_ICS_V3_median$RA_median_phylum = Non_ICS_V3_median$RA_median_phylum *100
 Non_ICS_V3_median$IQR = Non_ICS_V3_median$IQR *100
+Non_ICS_V3_median$Q1 = Non_ICS_V3_median$Q1*100
+Non_ICS_V3_median$Q3 = Non_ICS_V3_median$Q3*100
 Non_ICS_V3_median$Phylum = factor(Non_ICS_V3_median$Phylum, levels = order_phylum)
-Non_ICS_V3_median = Non_ICS_V3_median [-6,]
 
 Non_ICS_graph_V3 =  Non_ICS_V3 %>%
   group_by(Phylum) %>%
@@ -1840,24 +1907,29 @@ row.names(Non_ICS_graph_V3) = NULL
 Non_ICS_graph_V3$Group = as.factor("Non-ICS")
 
 Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Non_ICS_graph_V3  = Non_ICS_graph_V3  %>%
+is.num = sapply(Non_ICS_graph_V3, is.numeric)
+Non_ICS_graph_V3 [is.num] = lapply(Non_ICS_graph_V3 [is.num], round, 1)
+
+Non_ICS_graph_V3$Q1_Q3 = paste(Non_ICS_graph_V3$Q1, Non_ICS_graph_V3$Q3, sep="; ")
+Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Non_ICS_graph_V3 = Non_ICS_graph_V3 %>%
   slice(match(order_phylum, Phylum))
 
 #Table Phylum - V3 (ICS status)
-Table_V3_ICS = cbind (ICS_graph_V3 [,c(2,3,4,5)], Non_ICS_graph_V3 [,c(3,4,5)])
-colnames (Table_V3_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V3_ICS = cbind (ICS_graph_V3 [,c(2,3,4,5,6)], Non_ICS_graph_V3 [,c(3,4,5,6)])
+colnames (Table_V3_ICS) = c("Phylum", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V3_ICS, is.numeric)
-Table_V3_ICS [is.num] = lapply(Table_V3_ICS [is.num], round, 2)
+Table_V3_ICS  = Table_V3_ICS [-6, ] #Removing "Others" category
 
-kable(Table_V3_ICS) %>%
+kable(Table_V3_ICS, align = "lcccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V3_ICS) %>%
+kable(Table_V3_ICS, align = "lcccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  add_header_above(c(" " = 1, "ICS" = 4, "Non-ICS" = 4)) %>%
   save_kable(file = "Output-taxa-V3/Phylum-V3-table-ICS.html", self_contained = T)
 
 #Comparing ICS status versus Phylum 
@@ -1957,10 +2029,16 @@ write.table(dat_V3_RA, file = "Output-taxa-V3/V3-RA-OTU_taxa_phyla_others.csv", 
 
 #Creating a merged dataframe according to genus with mean/median relative abundances and IQR (phyloseq object: OTU_V3) 
 median_genus_V3 = ddply(dat_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+median_genus_V3 = median_genus_V3 [,-c(4,6,8)]
+colnames (median_genus_V3)[4] = "Q1"
+colnames (median_genus_V3)[5] = "Q3"
 
 median_genus_V3$RA_median_genus = median_genus_V3$RA_median_genus *100
 median_genus_V3$IQR = median_genus_V3$IQR *100
+median_genus_V3$Q1 = median_genus_V3$Q1*100
+median_genus_V3$Q3 = median_genus_V3$Q3*100
 median_genus_V3  = median_genus_V3 %>% arrange(desc(RA_median_genus))
 
 genus_graph_V3 = dat_g_V3 %>%
@@ -1979,17 +2057,20 @@ genus_graph_V3 = arrange(genus_graph_V3, desc(RA_mean_genus))
 genus_graph_V3 = genus_graph_V3 %>%
   slice(2,3:16,1)
 row.names(genus_graph_V3) = NULL
-
 genus_graph_V3_export = genus_graph_V3 [,-c(3,4)]
-colnames (genus_graph_V3_export) = c("Genus", "Total Reads", "RA-Mean", "RA-Median", "IQR")
 
 is.num = sapply(genus_graph_V3_export, is.numeric)
-genus_graph_V3_export [is.num] = lapply(genus_graph_V3_export [is.num], round, 2)
+genus_graph_V3_export [is.num] = lapply(genus_graph_V3_export [is.num], round, 1)
 
-kable(genus_graph_V3_export) %>%
+genus_graph_V3_export$Q1_Q3 = paste(genus_graph_V3_export$Q1, genus_graph_V3_export$Q3, sep="; ")
+genus_graph_V3_export = genus_graph_V3_export %>%
+  select (Genus, total_reads_genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+colnames (genus_graph_V3_export) = c("Genus", "Total_Reads", "Mean_Abundance", "Median_Abundance", "Q1; Q3", "IQR")
+
+kable(genus_graph_V3_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(genus_graph_V3_export) %>%
+kable(genus_graph_V3_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T) %>%
   save_kable(file = "Output-taxa-V3/V3-All-samples-genus-merged-table.html", self_contained = T)
 
@@ -2060,7 +2141,7 @@ p + theme(panel.background = element_blank(),
           plot.margin = unit(c(1,2,1,2), "cm"))
 
 ggsave(filename = "Output-taxa-V3/V3-Arm-genus-3groups.png",
-       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+       width = 8.5, height = 6.5, dpi = 300, units = "in", device='png')
 
 #Creating subsets tables according to the Randomization Arm
 #Flu + Salm (V3) - Genus
@@ -2073,34 +2154,47 @@ Adv_g_V3_RA = dat_g_V3_RA %>%
   droplevels()
 
 Adv_g_V3_median = ddply(Adv_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                        IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+
+Adv_g_V3_median = Adv_g_V3_median [,-c(4,6,8)]
+colnames (Adv_g_V3_median)[4] = "Q1"
+colnames (Adv_g_V3_median)[5] = "Q3"
 
 Adv_g_V3_median$RA_median_genus = Adv_g_V3_median$RA_median_genus *100
 Adv_g_V3_median$IQR = Adv_g_V3_median$IQR *100
-Adv_g_V3_median$Genus = factor(Adv_g_V3_median$Genus, levels = order_genus)
-Adv_g_V3_median = Adv_g_V3_median[-6,]
+Adv_g_V3_median$Q1 = Adv_g_V3_median$Q1*100
+Adv_g_V3_median$Q3 = Adv_g_V3_median$Q3*100
 
-Adv_graph_g_V3 =  Adv_g_V3 %>%
+Adv_g_V3_median$Genus = factor(Adv_g_V3_median$Genus, levels = order_genus)
+
+Adv_g_graph_V3 =  Adv_g_V3 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+Adv_g_graph_V3 = Adv_g_graph_V3 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+Adv_g_graph_V3 = Adv_g_graph_V3 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Adv_graph_g_V3 = merge (Adv_graph_g_V3, Adv_g_V3_median, by="Genus")
-Adv_graph_g_V3$Genus = factor(Adv_graph_g_V3$Genus , levels = order_genus)
-row.names(Adv_graph_g_V3) = NULL
+Adv_g_graph_V3 = merge (Adv_g_graph_V3, Adv_g_V3_median, by="Genus")
+Adv_g_graph_V3$Genus = factor(Adv_g_graph_V3$Genus , levels = order_genus)
+row.names(Adv_g_graph_V3) = NULL
 
-Adv_graph_g_V3$Group = as.factor("Flu + Salm")
+Adv_g_graph_V3$Group = as.factor("Flu + Salm")
 
-Adv_graph_g_V3 = Adv_graph_g_V3 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Adv_g_graph_V3 = Adv_g_graph_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Adv_graph_g_V3 = Adv_graph_g_V3 %>%
+is.num = sapply(Adv_g_graph_V3, is.numeric)
+Adv_g_graph_V3 [is.num] = lapply(Adv_g_graph_V3 [is.num], round, 1)
+
+Adv_g_graph_V3$Q1_Q3 = paste(Adv_g_graph_V3$Q1, Adv_g_graph_V3$Q3, sep="; ")
+Adv_g_graph_V3 = Adv_g_graph_V3 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Adv_g_graph_V3 = Adv_g_graph_V3 %>%
   slice(match(order_genus, Genus))
 
 #Bud + Form (V3) - Genus
@@ -2113,34 +2207,47 @@ Symb_g_V3_RA = dat_g_V3_RA %>%
   droplevels()
 
 Symb_g_V3_median = ddply(Symb_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                             IQR=IQR(x$Abundance)))
+                                                             IQR=IQR(x$Abundance),
+                                                             Quantile=quantile(x$Abundance)))
+
+Symb_g_V3_median = Symb_g_V3_median [,-c(4,6,8)]
+colnames (Symb_g_V3_median)[4] = "Q1"
+colnames (Symb_g_V3_median)[5] = "Q3"
 
 Symb_g_V3_median$RA_median_genus = Symb_g_V3_median$RA_median_genus *100
 Symb_g_V3_median$IQR = Symb_g_V3_median$IQR *100
-Symb_g_V3_median$Genus = factor(Symb_g_V3_median$Genus, levels = order_genus)
-Symb_g_V3_median = Symb_g_V3_median[-6,]
+Symb_g_V3_median$Q1 = Symb_g_V3_median$Q1*100
+Symb_g_V3_median$Q3 = Symb_g_V3_median$Q3*100
 
-Symb_graph_g_V3 =  Symb_g_V3 %>%
+Symb_g_V3_median$Genus = factor(Symb_g_V3_median$Genus, levels = order_genus)
+
+Symb_g_graph_V3 =  Symb_g_V3 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+Symb_g_graph_V3 = Symb_g_graph_V3 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+Symb_g_graph_V3 = Symb_g_graph_V3 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Symb_graph_g_V3 = merge (Symb_graph_g_V3, Symb_g_V3_median, by="Genus")
-Symb_graph_g_V3$Genus = factor(Symb_graph_g_V3$Genus , levels = order_genus)
-row.names(Symb_graph_g_V3) = NULL
+Symb_g_graph_V3 = merge (Symb_g_graph_V3, Symb_g_V3_median, by="Genus")
+Symb_g_graph_V3$Genus = factor(Symb_g_graph_V3$Genus , levels = order_genus)
+row.names(Symb_g_graph_V3) = NULL
 
-Symb_graph_g_V3$Group = as.factor("Bud + Form")
+Symb_g_graph_V3$Group = as.factor("Bud + Form")
 
-Symb_graph_g_V3 = Symb_graph_g_V3 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Symb_g_graph_V3 = Symb_g_graph_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Symb_graph_g_V3 = Symb_graph_g_V3 %>%
+is.num = sapply(Symb_g_graph_V3, is.numeric)
+Symb_g_graph_V3 [is.num] = lapply(Symb_g_graph_V3 [is.num], round, 1)
+
+Symb_g_graph_V3$Q1_Q3 = paste(Symb_g_graph_V3$Q1, Symb_g_graph_V3$Q3, sep="; ")
+Symb_g_graph_V3 = Symb_g_graph_V3 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Symb_g_graph_V3 = Symb_g_graph_V3 %>%
   slice(match(order_genus, Genus))
 
 #Form (V3) - Genus
@@ -2153,49 +2260,62 @@ Oxeze_g_V3_RA = dat_g_V3_RA %>%
   droplevels()
 
 Oxeze_g_V3_median = ddply(Oxeze_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                               IQR=IQR(x$Abundance)))
+                                                               IQR=IQR(x$Abundance),
+                                                               Quantile=quantile(x$Abundance)))
+
+Oxeze_g_V3_median = Oxeze_g_V3_median [,-c(4,6,8)]
+colnames (Oxeze_g_V3_median)[4] = "Q1"
+colnames (Oxeze_g_V3_median)[5] = "Q3"
 
 Oxeze_g_V3_median$RA_median_genus = Oxeze_g_V3_median$RA_median_genus *100
 Oxeze_g_V3_median$IQR = Oxeze_g_V3_median$IQR *100
-Oxeze_g_V3_median$Genus = factor(Oxeze_g_V3_median$Genus, levels = order_genus)
-Oxeze_g_V3_median = Oxeze_g_V3_median[-6,]
+Oxeze_g_V3_median$Q1 = Oxeze_g_V3_median$Q1*100
+Oxeze_g_V3_median$Q3 = Oxeze_g_V3_median$Q3*100
 
-Oxeze_graph_g_V3 =  Oxeze_g_V3 %>%
+Oxeze_g_V3_median$Genus = factor(Oxeze_g_V3_median$Genus, levels = order_genus)
+
+Oxeze_g_graph_V3 =  Oxeze_g_V3 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+Oxeze_g_graph_V3 = Oxeze_g_graph_V3 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+Oxeze_g_graph_V3 = Oxeze_g_graph_V3 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Oxeze_graph_g_V3 = merge (Oxeze_graph_g_V3, Oxeze_g_V3_median, by="Genus")
-Oxeze_graph_g_V3$Genus = factor(Oxeze_graph_g_V3$Genus , levels = order_genus)
-row.names(Oxeze_graph_g_V3) = NULL
+Oxeze_g_graph_V3 = merge (Oxeze_g_graph_V3, Oxeze_g_V3_median, by="Genus")
+Oxeze_g_graph_V3$Genus = factor(Oxeze_g_graph_V3$Genus , levels = order_genus)
+row.names(Oxeze_g_graph_V3) = NULL
 
-Oxeze_graph_g_V3$Group = as.factor("Form")
+Oxeze_g_graph_V3$Group = as.factor("Form")
 
-Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Oxeze_g_graph_V3 = Oxeze_g_graph_V3 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Oxeze_graph_g_V3 = Oxeze_graph_g_V3 %>%
+is.num = sapply(Oxeze_g_graph_V3, is.numeric)
+Oxeze_g_graph_V3 [is.num] = lapply(Oxeze_g_graph_V3 [is.num], round, 1)
+
+Oxeze_g_graph_V3$Q1_Q3 = paste(Oxeze_g_graph_V3$Q1, Oxeze_g_graph_V3$Q3, sep="; ")
+Oxeze_g_graph_V3 = Oxeze_g_graph_V3 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Oxeze_g_graph_V3 = Oxeze_g_graph_V3 %>%
   slice(match(order_genus, Genus))
 
 #Table Genus - V3 (Randomization Arm)
-Table_V3_g_Arm = cbind (Symb_graph_g_V3 [,c(2,3,4,5)], Adv_graph_g_V3 [,c(3,4,5)], Oxeze_graph_g_V3 [,c(3,4,5)])
-colnames (Table_V3_g_Arm) = c("Genus", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V3_g_Arm = cbind (Symb_g_graph_V3 [,c(2,3,4,5,6)], Adv_g_graph_V3 [,c(3,4,5,6)], Oxeze_g_graph_V3 [,c(3,4,5,6)])
+colnames (Table_V3_g_Arm) = c("Genus", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median",  
+                            "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V3_g_Arm, is.numeric)
-Table_V3_g_Arm [is.num] = lapply(Table_V3_g_Arm [is.num], round, 2)
+Table_V3_g_Arm  = Table_V3_g_Arm [-16, ] #Removing "Others" category
 
-kable(Table_V3_g_Arm) %>%
+kable(Table_V3_g_Arm, align = "lcccccccccccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V3_g_Arm) %>%
+kable(Table_V3_g_Arm, align = "lcccccccccccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 4,"Flu + Salm" = 4, "Form" = 4)) %>%
   save_kable(file = "Output-taxa-V3/Genus-V3-table-Arm.html", self_contained = T)
 
 #Comparing Randomization Arm versus Genus 
@@ -2292,12 +2412,18 @@ ICS_g_V3_RA = dat_g_V3_RA %>%
   droplevels()
 
 ICS_g_V3_median = ddply(ICS_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                        IQR=IQR(x$Abundance)))
+                                                            IQR=IQR(x$Abundance),
+                                                            Quantile=quantile(x$Abundance)))
+
+ICS_g_V3_median = ICS_g_V3_median [,-c(4,6,8)]
+colnames (ICS_g_V3_median)[4] = "Q1"
+colnames (ICS_g_V3_median)[5] = "Q3"
 
 ICS_g_V3_median$RA_median_genus = ICS_g_V3_median$RA_median_genus *100
 ICS_g_V3_median$IQR = ICS_g_V3_median$IQR *100
+ICS_g_V3_median$Q1 = ICS_g_V3_median$Q1*100
+ICS_g_V3_median$Q3 = ICS_g_V3_median$Q3*100
 ICS_g_V3_median$Genus = factor(ICS_g_V3_median$Genus, levels = order_genus)
-ICS_g_V3_median = ICS_g_V3_median [-6,]
 
 ICS_g_graph_V3 =  ICS_g_V3 %>%
   group_by(Genus) %>%
@@ -2317,9 +2443,15 @@ row.names(ICS_g_graph_V3) = NULL
 ICS_g_graph_V3$Group = as.factor("ICS")
 
 ICS_g_graph_V3 = ICS_g_graph_V3 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-ICS_g_graph_V3  = ICS_g_graph_V3  %>%
+is.num = sapply(ICS_g_graph_V3, is.numeric)
+ICS_g_graph_V3 [is.num] = lapply(ICS_g_graph_V3 [is.num], round, 1)
+
+ICS_g_graph_V3$Q1_Q3 = paste(ICS_g_graph_V3$Q1, ICS_g_graph_V3$Q3, sep="; ")
+ICS_g_graph_V3 = ICS_g_graph_V3 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+ICS_g_graph_V3 = ICS_g_graph_V3 %>%
   slice(match(order_genus, Genus))
 
 #Non-ICS (V3) - Genus
@@ -2332,12 +2464,18 @@ Non_ICS_g_V3_RA = dat_g_V3_RA %>%
   droplevels()
 
 Non_ICS_g_V3_median = ddply(Non_ICS_g_V3_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                                   IQR=IQR(x$Abundance)))
+                                                                   IQR=IQR(x$Abundance),
+                                                                   Quantile=quantile(x$Abundance)))
+
+Non_ICS_g_V3_median = Non_ICS_g_V3_median [,-c(4,6,8)]
+colnames (Non_ICS_g_V3_median)[4] = "Q1"
+colnames (Non_ICS_g_V3_median)[5] = "Q3"
 
 Non_ICS_g_V3_median$RA_median_genus = Non_ICS_g_V3_median$RA_median_genus *100
 Non_ICS_g_V3_median$IQR = Non_ICS_g_V3_median$IQR *100
+Non_ICS_g_V3_median$Q1 = Non_ICS_g_V3_median$Q1*100
+Non_ICS_g_V3_median$Q3 = Non_ICS_g_V3_median$Q3*100
 Non_ICS_g_V3_median$Genus = factor(Non_ICS_g_V3_median$Genus, levels = order_genus)
-Non_ICS_g_V3_median = Non_ICS_g_V3_median [-6,]
 
 Non_ICS_g_graph_V3 =  Non_ICS_g_V3 %>%
   group_by(Genus) %>%
@@ -2357,24 +2495,29 @@ row.names(Non_ICS_g_graph_V3) = NULL
 Non_ICS_g_graph_V3$Group = as.factor("Non-ICS")
 
 Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Non_ICS_g_graph_V3  = Non_ICS_g_graph_V3  %>%
+is.num = sapply(Non_ICS_g_graph_V3, is.numeric)
+Non_ICS_g_graph_V3 [is.num] = lapply(Non_ICS_g_graph_V3 [is.num], round, 1)
+
+Non_ICS_g_graph_V3$Q1_Q3 = paste(Non_ICS_g_graph_V3$Q1, Non_ICS_g_graph_V3$Q3, sep="; ")
+Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Non_ICS_g_graph_V3 = Non_ICS_g_graph_V3 %>%
   slice(match(order_genus, Genus))
 
 #Table Genus - V3 (ICS status)
-Table_V3_g_ICS = cbind (ICS_g_graph_V3 [,c(2,3,4,5)], Non_ICS_g_graph_V3 [,c(3,4,5)])
-colnames (Table_V3_g_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V3_g_ICS = cbind (ICS_g_graph_V3 [,c(2,3,4,5,6)], Non_ICS_g_graph_V3 [,c(3,4,5,6)])
+colnames (Table_V3_g_ICS) = c("Genus", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V3_g_ICS, is.numeric)
-Table_V3_g_ICS [is.num] = lapply(Table_V3_g_ICS [is.num], round, 2)
+Table_V3_g_ICS = Table_V3_g_ICS  [-16, ] #Removing "Others" category
 
-kable(Table_V3_g_ICS) %>%
+kable(Table_V3_g_ICS, align = "lcccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V3_g_ICS) %>%
+kable(Table_V3_g_ICS, align = "lcccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  add_header_above(c(" " = 1, "ICS" = 4, "Non-ICS" = 4)) %>%
   save_kable(file = "Output-taxa-V3/Genus-V3-table-ICS.html", self_contained = T)
 
 #Comparing ICS status versus Genus 
@@ -2450,11 +2593,18 @@ write.table(dat_V7_RA, file = "Output-taxa-V7/V7-RA-OTU_taxa_phyla_others.csv", 
 
 #Creating a merged dataframe by phylum with mean/median relative abundances and IQR (phyloseq object: OTU_V7) 
 median_phylum_V7 = ddply(dat_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+
+median_phylum_V7 = median_phylum_V7 [,-c(4,6,8)]
+colnames (median_phylum_V7)[4] = "Q1"
+colnames (median_phylum_V7)[5] = "Q3"
 
 median_phylum_V7$RA_median_phylum = median_phylum_V7$RA_median_phylum *100
 median_phylum_V7$IQR = median_phylum_V7$IQR *100
-median_phylum_V7  = median_phylum_V7 %>% arrange(desc(RA_median_phylum))
+median_phylum_V7$Q1 = median_phylum_V7$Q1*100
+median_phylum_V7$Q3 = median_phylum_V7$Q3*100
+median_phylum_V7 = median_phylum_V7 %>% arrange(desc(RA_median_phylum))
 
 phylum_graph_V7 = dat_V7 %>%
   group_by(Phylum) %>%
@@ -2462,31 +2612,34 @@ phylum_graph_V7 = dat_V7 %>%
              median_reads_phylum = median(Abundance))
 
 phylum_graph_V7 = phylum_graph_V7 %>%
-  mutate (total_reads_overall  = sum(total_reads_phylum))
+  mutate (total_reads_overall = sum(total_reads_phylum))
 
 phylum_graph_V7 = phylum_graph_V7 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
 
 phylum_graph_V7 = merge (phylum_graph_V7, median_phylum_V7, by="Phylum")
 phylum_graph_V7 = arrange(phylum_graph_V7, desc(RA_median_phylum))
-phylum_graph_V7 = phylum_graph_V7 %>%
-  slice(1,2,4,3,5,6)
 row.names(phylum_graph_V7) = NULL
-
 phylum_graph_V7_export = phylum_graph_V7 [,-c(3,4)]
-colnames (phylum_graph_V7_export) = c("Phylum", "Total Reads", "RA-Mean", "RA-Median", "IQR")
 
 is.num = sapply(phylum_graph_V7_export, is.numeric)
-phylum_graph_V7_export [is.num] = lapply(phylum_graph_V7_export [is.num], round, 2)
+phylum_graph_V7_export [is.num] = lapply(phylum_graph_V7_export [is.num], round, 1)
 
-kable(phylum_graph_V7_export) %>%
+phylum_graph_V7_export$Q1_Q3 = paste(phylum_graph_V7_export$Q1, phylum_graph_V7_export$Q3, sep="; ")
+phylum_graph_V7_export = phylum_graph_V7_export %>%
+  select (Phylum, total_reads_phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+colnames (phylum_graph_V7_export) = c("Phylum", "Total_Reads", "Mean_Abundance", "Median_Abundance", "Q1; Q3", "IQR")
+
+kable(phylum_graph_V7_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(phylum_graph_V7_export) %>%
+kable(phylum_graph_V7_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T) %>%
   save_kable(file = "Output-taxa-V7/V7-All-samples-phylum-merged-table.html", self_contained = T)
 
 #Creating factors for plots
+order_phylum = factor(phylum_graph_V7$Phylum, levels = phylum_graph_V7$Phylum)
+
 dat_V7_RA$Phylum = as.factor(dat_V7_RA$Phylum)
 dat_V7_RA$Phylum = factor(dat_V7_RA$Phylum, levels = order_phylum)
 
@@ -2521,6 +2674,9 @@ dat_V7_arm_RA[!dat_V7_arm_RA$Phylum %in% List_phylum,]$Phylum = 'Others'
 dat_V7_arm_RA$Group = as.factor (dat_V7_arm_RA$Group)
 dat_V7_arm_RA$Phylum = as.factor(dat_V7_arm_RA$Phylum)
 dat_V7_arm_RA$Phylum = factor(dat_V7_arm_RA$Phylum, levels = order_phylum)
+
+#Creating customized color palettes for phylum analyses
+cbPalette_phylum = c("#00BFC4", "#E7B800", "#FC4E07", "#0073C2FF", "#CBD588", "black")  
 
 #Making merged plots - V7 (Randomization group vs. Phylum)
 metadata_V7 = metadata %>%
@@ -2558,7 +2714,7 @@ p + theme(panel.background = element_blank(),
           plot.margin = unit(c(1,2,1,2), "cm"))
 
 ggsave(filename = "Output-taxa-V7/V7-Arm-phylum-3groups.png",
-       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+       width = 8.5, height = 6.5, dpi = 300, units = "in", device='png')
 
 #Creating subsets tables according to the Randomization Arm
 #Flu + Salm (V7) - Phylum
@@ -2571,12 +2727,19 @@ Adv_V7_RA = dat_V7_RA %>%
   droplevels()
 
 Adv_V7_median = ddply(Adv_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                        IQR=IQR(x$Abundance)))
+                                                        IQR=IQR(x$Abundance),
+                                                        Quantile=quantile(x$Abundance)))
+
+Adv_V7_median = Adv_V7_median [,-c(4,6,8)]
+colnames (Adv_V7_median)[4] = "Q1"
+colnames (Adv_V7_median)[5] = "Q3"
 
 Adv_V7_median$RA_median_phylum = Adv_V7_median$RA_median_phylum *100
 Adv_V7_median$IQR = Adv_V7_median$IQR *100
+Adv_V7_median$Q1 = Adv_V7_median$Q1*100
+Adv_V7_median$Q3 = Adv_V7_median$Q3*100
+
 Adv_V7_median$Phylum = factor(Adv_V7_median$Phylum, levels = order_phylum)
-Adv_V7_median = Adv_V7_median[-6,]
 
 Adv_graph_V7 =  Adv_V7 %>%
   group_by(Phylum) %>%
@@ -2596,8 +2759,14 @@ row.names(Adv_graph_V7) = NULL
 Adv_graph_V7$Group = as.factor("Flu + Salm")
 
 Adv_graph_V7 = Adv_graph_V7 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
+is.num = sapply(Adv_graph_V7, is.numeric)
+Adv_graph_V7 [is.num] = lapply(Adv_graph_V7 [is.num], round, 1)
+
+Adv_graph_V7$Q1_Q3 = paste(Adv_graph_V7$Q1, Adv_graph_V7$Q3, sep="; ")
+Adv_graph_V7 = Adv_graph_V7 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
 Adv_graph_V7 = Adv_graph_V7 %>%
   slice(match(order_phylum, Phylum))
 
@@ -2611,12 +2780,19 @@ Symb_V7_RA = dat_V7_RA %>%
   droplevels()
 
 Symb_V7_median = ddply(Symb_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                          IQR=IQR(x$Abundance)))
+                                                          IQR=IQR(x$Abundance),
+                                                          Quantile=quantile(x$Abundance)))
+
+Symb_V7_median = Symb_V7_median [,-c(4,6,8)]
+colnames (Symb_V7_median)[4] = "Q1"
+colnames (Symb_V7_median)[5] = "Q3"
 
 Symb_V7_median$RA_median_phylum = Symb_V7_median$RA_median_phylum *100
 Symb_V7_median$IQR = Symb_V7_median$IQR *100
+Symb_V7_median$Q1 = Symb_V7_median$Q1*100
+Symb_V7_median$Q3 = Symb_V7_median$Q3*100
+
 Symb_V7_median$Phylum = factor(Symb_V7_median$Phylum, levels = order_phylum)
-Symb_V7_median  =Symb_V7_median [-6,]
 
 Symb_graph_V7 =  Symb_V7 %>%
   group_by(Phylum) %>%
@@ -2630,15 +2806,21 @@ Symb_graph_V7 = Symb_graph_V7 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
 
 Symb_graph_V7 = merge (Symb_graph_V7, Symb_V7_median, by="Phylum")
-Symb_graph_V7$Phylum = factor(Symb_graph_V7$Phylum, levels = order_phylum)
+Symb_graph_V7$Phylum = factor(Symb_graph_V7$Phylum , levels = order_phylum)
 row.names(Symb_graph_V7) = NULL
 
-Symb_graph_V7$Group = as.factor("Flu + Salm")
+Symb_graph_V7$Group = as.factor("Bud + Form")
 
 Symb_graph_V7 = Symb_graph_V7 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Symb_graph_V7  = Symb_graph_V7  %>%
+is.num = sapply(Symb_graph_V7, is.numeric)
+Symb_graph_V7 [is.num] = lapply(Symb_graph_V7 [is.num], round, 1)
+
+Symb_graph_V7$Q1_Q3 = paste(Symb_graph_V7$Q1, Symb_graph_V7$Q3, sep="; ")
+Symb_graph_V7 = Symb_graph_V7 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Symb_graph_V7 = Symb_graph_V7 %>%
   slice(match(order_phylum, Phylum))
 
 #Form (V7) - Phylum
@@ -2651,12 +2833,19 @@ Oxeze_V7_RA = dat_V7_RA %>%
   droplevels()
 
 Oxeze_V7_median = ddply(Oxeze_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                            IQR=IQR(x$Abundance)))
+                                                            IQR=IQR(x$Abundance),
+                                                            Quantile=quantile(x$Abundance)))
+
+Oxeze_V7_median = Oxeze_V7_median [,-c(4,6,8)]
+colnames (Oxeze_V7_median)[4] = "Q1"
+colnames (Oxeze_V7_median)[5] = "Q3"
 
 Oxeze_V7_median$RA_median_phylum = Oxeze_V7_median$RA_median_phylum *100
 Oxeze_V7_median$IQR = Oxeze_V7_median$IQR *100
+Oxeze_V7_median$Q1 = Oxeze_V7_median$Q1*100
+Oxeze_V7_median$Q3 = Oxeze_V7_median$Q3*100
+
 Oxeze_V7_median$Phylum = factor(Oxeze_V7_median$Phylum, levels = order_phylum)
-Oxeze_V7_median = Oxeze_V7_median [-6,]
 
 Oxeze_graph_V7 =  Oxeze_V7 %>%
   group_by(Phylum) %>%
@@ -2670,30 +2859,36 @@ Oxeze_graph_V7 = Oxeze_graph_V7 %>%
   mutate (RA_mean_phylum = (total_reads_phylum/total_reads_overall)*100)
 
 Oxeze_graph_V7 = merge (Oxeze_graph_V7, Oxeze_V7_median, by="Phylum")
-Oxeze_graph_V7$Phylum = factor(Oxeze_graph_V7$Phylum, levels = order_phylum)
+Oxeze_graph_V7$Phylum = factor(Oxeze_graph_V7$Phylum , levels = order_phylum)
 row.names(Oxeze_graph_V7) = NULL
 
 Oxeze_graph_V7$Group = as.factor("Form")
 
 Oxeze_graph_V7 = Oxeze_graph_V7 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Oxeze_graph_V7  = Oxeze_graph_V7  %>%
+is.num = sapply(Oxeze_graph_V7, is.numeric)
+Oxeze_graph_V7 [is.num] = lapply(Oxeze_graph_V7 [is.num], round, 1)
+
+Oxeze_graph_V7$Q1_Q3 = paste(Oxeze_graph_V7$Q1, Oxeze_graph_V7$Q3, sep="; ")
+Oxeze_graph_V7 = Oxeze_graph_V7 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Oxeze_graph_V7 = Oxeze_graph_V7 %>%
   slice(match(order_phylum, Phylum))
 
 #Table Phylum - V7 (Randomization Arm)
-Table_V7_Arm = cbind (Symb_graph_V7 [,c(2,3,4,5)], Adv_graph_V7 [,c(3,4,5)], Oxeze_graph_V7 [,c(3,4,5)])
-colnames (Table_V7_Arm) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V7_Arm = cbind (Symb_graph_V7 [,c(2,3,4,5,6)], Adv_graph_V7 [,c(3,4,5,6)], Oxeze_graph_V7 [,c(3,4,5,6)])
+colnames (Table_V7_Arm) = c("Phylum", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median",  
+                            "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V7_Arm, is.numeric)
-Table_V7_Arm [is.num] = lapply(Table_V7_Arm [is.num], round, 2)
+Table_V7_Arm = Table_V7_Arm [-6, ] #Removing "Others" category
 
-kable(Table_V7_Arm) %>%
+kable(Table_V7_Arm, align = "lcccccccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V7_Arm) %>%
+kable(Table_V7_Arm, align = "lcccccccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 4,"Flu + Salm" = 4, "Form" = 4)) %>%
   save_kable(file = "Output-taxa-V7/Phylum-V7-table-Arm.html", self_contained = T)
 
 #Comparing Randomization Arm versus Phylum 
@@ -2794,12 +2989,18 @@ ICS_V7_RA = dat_V7_RA %>%
   droplevels()
 
 ICS_V7_median = ddply(ICS_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                        IQR=IQR(x$Abundance)))
+                                                        IQR=IQR(x$Abundance),
+                                                        Quantile=quantile(x$Abundance)))
+
+ICS_V7_median = ICS_V7_median [,-c(4,6,8)]
+colnames (ICS_V7_median)[4] = "Q1"
+colnames (ICS_V7_median)[5] = "Q3"
 
 ICS_V7_median$RA_median_phylum = ICS_V7_median$RA_median_phylum *100
 ICS_V7_median$IQR = ICS_V7_median$IQR *100
+ICS_V7_median$Q1 = ICS_V7_median$Q1*100
+ICS_V7_median$Q3 = ICS_V7_median$Q3*100
 ICS_V7_median$Phylum = factor(ICS_V7_median$Phylum, levels = order_phylum)
-ICS_V7_median = ICS_V7_median [-6,]
 
 ICS_graph_V7 =  ICS_V7 %>%
   group_by(Phylum) %>%
@@ -2819,9 +3020,15 @@ row.names(ICS_graph_V7) = NULL
 ICS_graph_V7$Group = as.factor("ICS")
 
 ICS_graph_V7 = ICS_graph_V7 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-ICS_graph_V7  = ICS_graph_V7  %>%
+is.num = sapply(ICS_graph_V7, is.numeric)
+ICS_graph_V7 [is.num] = lapply(ICS_graph_V7 [is.num], round, 1)
+
+ICS_graph_V7$Q1_Q3 = paste(ICS_graph_V7$Q1, ICS_graph_V7$Q3, sep="; ")
+ICS_graph_V7 = ICS_graph_V7 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+ICS_graph_V7 = ICS_graph_V7 %>%
   slice(match(order_phylum, Phylum))
 
 #Non-ICS (V7) - Phylum
@@ -2834,12 +3041,18 @@ Non_ICS_V7_RA = dat_V7_RA %>%
   droplevels()
 
 Non_ICS_V7_median = ddply(Non_ICS_V7_RA, ~Phylum, function(x) c(RA_median_phylum=median(x$Abundance),
-                                                                IQR=IQR(x$Abundance)))
+                                                                IQR=IQR(x$Abundance),
+                                                                Quantile=quantile(x$Abundance)))
+
+Non_ICS_V7_median = Non_ICS_V7_median [,-c(4,6,8)]
+colnames (Non_ICS_V7_median)[4] = "Q1"
+colnames (Non_ICS_V7_median)[5] = "Q3"
 
 Non_ICS_V7_median$RA_median_phylum = Non_ICS_V7_median$RA_median_phylum *100
 Non_ICS_V7_median$IQR = Non_ICS_V7_median$IQR *100
+Non_ICS_V7_median$Q1 = Non_ICS_V7_median$Q1*100
+Non_ICS_V7_median$Q3 = Non_ICS_V7_median$Q3*100
 Non_ICS_V7_median$Phylum = factor(Non_ICS_V7_median$Phylum, levels = order_phylum)
-Non_ICS_V7_median = Non_ICS_V7_median [-6,]
 
 Non_ICS_graph_V7 =  Non_ICS_V7 %>%
   group_by(Phylum) %>%
@@ -2859,24 +3072,29 @@ row.names(Non_ICS_graph_V7) = NULL
 Non_ICS_graph_V7$Group = as.factor("Non-ICS")
 
 Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
-  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, IQR)
+  select(Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1, Q3, IQR)
 
-Non_ICS_graph_V7  = Non_ICS_graph_V7  %>%
+is.num = sapply(Non_ICS_graph_V7, is.numeric)
+Non_ICS_graph_V7 [is.num] = lapply(Non_ICS_graph_V7 [is.num], round, 1)
+
+Non_ICS_graph_V7$Q1_Q3 = paste(Non_ICS_graph_V7$Q1, Non_ICS_graph_V7$Q3, sep="; ")
+Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
+  select (Group, Phylum, RA_mean_phylum, RA_median_phylum, Q1_Q3, IQR)
+Non_ICS_graph_V7 = Non_ICS_graph_V7 %>%
   slice(match(order_phylum, Phylum))
 
 #Table Phylum - V7 (ICS status)
-Table_V7_ICS = cbind (ICS_graph_V7 [,c(2,3,4,5)], Non_ICS_graph_V7 [,c(3,4,5)])
-colnames (Table_V7_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V7_ICS = cbind (ICS_graph_V7 [,c(2,3,4,5,6)], Non_ICS_graph_V7 [,c(3,4,5,6)])
+colnames (Table_V7_ICS) = c("Phylum", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V7_ICS, is.numeric)
-Table_V7_ICS [is.num] = lapply(Table_V7_ICS [is.num], round, 2)
+Table_V7_ICS  = Table_V7_ICS [-6, ] #Removing "Others" category
 
-kable(Table_V7_ICS) %>%
+kable(Table_V7_ICS, align = "lcccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V7_ICS) %>%
+kable(Table_V7_ICS, align = "lcccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  add_header_above(c(" " = 1, "ICS" = 4, "Non-ICS" = 4)) %>%
   save_kable(file = "Output-taxa-V7/Phylum-V7-table-ICS.html", self_contained = T)
 
 #Comparing ICS status versus Phylum 
@@ -2899,7 +3117,6 @@ V7_ics_wilcoxon_phylum %>%
 
 write.table(V7_ics_wilcoxon_phylum, file = "Output-taxa-V7/V7_ics_phylum.results.csv", sep = ",", 
             qmethod = "double", row.names=FALSE)
-
 -------------------------------------------------------------------------Genus-V7 (Randomization Arm)--------------------------------------------------------------------------
 #Creating csv file (phyloseq object: OTU_V7) 
 OTU_taxa_genus_V7 =  OTU_V7 %>%
@@ -2940,10 +3157,16 @@ write.table(dat_V7_RA, file = "Output-taxa-V7/V7-RA-OTU_taxa_phyla_others.csv", 
 
 #Creating a merged dataframe according to genus with mean/median relative abundances and IQR (phyloseq object: OTU_V7) 
 median_genus_V7 = ddply(dat_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+median_genus_V7 = median_genus_V7 [,-c(4,6,8)]
+colnames (median_genus_V7)[4] = "Q1"
+colnames (median_genus_V7)[5] = "Q3"
 
 median_genus_V7$RA_median_genus = median_genus_V7$RA_median_genus *100
 median_genus_V7$IQR = median_genus_V7$IQR *100
+median_genus_V7$Q1 = median_genus_V7$Q1*100
+median_genus_V7$Q3 = median_genus_V7$Q3*100
 median_genus_V7  = median_genus_V7 %>% arrange(desc(RA_median_genus))
 
 genus_graph_V7 = dat_g_V7 %>%
@@ -2958,25 +3181,29 @@ genus_graph_V7 = genus_graph_V7 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
 genus_graph_V7 = merge (genus_graph_V7, median_genus_V7, by="Genus")
-genus_graph_V7 = arrange(genus_graph_V7, desc(RA_median_genus))
+genus_graph_V7 = arrange(genus_graph_V7, desc(RA_mean_genus))
 genus_graph_V7 = genus_graph_V7 %>%
-  slice(3,1,2,6,5,4,7,11,8,9,14,13,15,12,10,16)
+  slice(2,3:16,1)
 row.names(genus_graph_V7) = NULL
-
 genus_graph_V7_export = genus_graph_V7 [,-c(3,4)]
-colnames (genus_graph_V7_export) = c("Genus", "Total Reads", "RA-Mean", "RA-Median", "IQR")
 
 is.num = sapply(genus_graph_V7_export, is.numeric)
-genus_graph_V7_export [is.num] = lapply(genus_graph_V7_export [is.num], round, 2)
+genus_graph_V7_export [is.num] = lapply(genus_graph_V7_export [is.num], round, 1)
 
-kable(genus_graph_V7_export) %>%
+genus_graph_V7_export$Q1_Q3 = paste(genus_graph_V7_export$Q1, genus_graph_V7_export$Q3, sep="; ")
+genus_graph_V7_export = genus_graph_V7_export %>%
+  select (Genus, total_reads_genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+colnames (genus_graph_V7_export) = c("Genus", "Total_Reads", "Mean_Abundance", "Median_Abundance", "Q1; Q3", "IQR")
+
+kable(genus_graph_V7_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(genus_graph_V7_export) %>%
+kable(genus_graph_V7_export, align = "lcccccc") %>%
   kable_styling(fixed_thead = T) %>%
   save_kable(file = "Output-taxa-V7/V7-All-samples-genus-merged-table.html", self_contained = T)
 
 #Creating factors for plots
+order_genus = factor(genus_graph_V7$Genus, levels = genus_graph_V7$Genus)
 dat_g_V7_RA$Genus = as.factor(dat_g_V7_RA$Genus)
 dat_g_V7_RA$Genus = factor(dat_g_V7_RA$Genus, levels = order_genus)
 
@@ -3004,6 +3231,11 @@ dat_g_V7_arm_RA[!dat_g_V7_arm_RA$Genus %in% List_genus,]$Genus = 'Others'
 dat_g_V7_arm_RA$Group = as.factor (dat_g_V7_arm_RA$Group)
 dat_g_V7_arm_RA$Genus = as.factor(dat_g_V7_arm_RA$Genus)
 dat_g_V7_arm_RA$Genus = factor(dat_g_V7_arm_RA$Genus, levels = order_genus)
+
+#Creating customized color palettes for genus analyses
+cbPalette_genus <- c("#00BFC4", "#E7B800", "#FC4E07", "#0073C2FF", "#CBD588", "#999999",
+                     "#C77CFF", "#5F7FC7", "#DA5724", "#508578", "darkred",
+                     "#AD6F3B", "cornflowerblue","deeppink", "khaki", "black")
 
 #Making merged plots - V7 (Randomization group vs. Genus)
 xlabs = paste(levels(metadata_V7$Treatment_Arm),"\n(N=",
@@ -3037,7 +3269,7 @@ p + theme(panel.background = element_blank(),
           plot.margin = unit(c(1,2,1,2), "cm"))
 
 ggsave(filename = "Output-taxa-V7/V7-Arm-genus-3groups.png",
-       width = 8.0, height = 6.5, dpi = 300, units = "in", device='png')
+       width = 8.5, height = 6.5, dpi = 300, units = "in", device='png')
 
 #Creating subsets tables according to the Randomization Arm
 #Flu + Salm (V7) - Genus
@@ -3050,34 +3282,47 @@ Adv_g_V7_RA = dat_g_V7_RA %>%
   droplevels()
 
 Adv_g_V7_median = ddply(Adv_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+
+Adv_g_V7_median = Adv_g_V7_median [,-c(4,6,8)]
+colnames (Adv_g_V7_median)[4] = "Q1"
+colnames (Adv_g_V7_median)[5] = "Q3"
 
 Adv_g_V7_median$RA_median_genus = Adv_g_V7_median$RA_median_genus *100
 Adv_g_V7_median$IQR = Adv_g_V7_median$IQR *100
-Adv_g_V7_median$Genus = factor(Adv_g_V7_median$Genus, levels = order_genus)
-Adv_g_V7_median = Adv_g_V7_median[-6,]
+Adv_g_V7_median$Q1 = Adv_g_V7_median$Q1*100
+Adv_g_V7_median$Q3 = Adv_g_V7_median$Q3*100
 
-Adv_graph_g_V7 =  Adv_g_V7 %>%
+Adv_g_V7_median$Genus = factor(Adv_g_V7_median$Genus, levels = order_genus)
+
+Adv_g_graph_V7 =  Adv_g_V7 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+Adv_g_graph_V7 = Adv_g_graph_V7 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+Adv_g_graph_V7 = Adv_g_graph_V7 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Adv_graph_g_V7 = merge (Adv_graph_g_V7, Adv_g_V7_median, by="Genus")
-Adv_graph_g_V7$Genus = factor(Adv_graph_g_V7$Genus , levels = order_genus)
-row.names(Adv_graph_g_V7) = NULL
+Adv_g_graph_V7 = merge (Adv_g_graph_V7, Adv_g_V7_median, by="Genus")
+Adv_g_graph_V7$Genus = factor(Adv_g_graph_V7$Genus , levels = order_genus)
+row.names(Adv_g_graph_V7) = NULL
 
-Adv_graph_g_V7$Group = as.factor("Flu + Salm")
+Adv_g_graph_V7$Group = as.factor("Flu + Salm")
 
-Adv_graph_g_V7 = Adv_graph_g_V7 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Adv_g_graph_V7 = Adv_g_graph_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Adv_graph_g_V7 = Adv_graph_g_V7 %>%
+is.num = sapply(Adv_g_graph_V7, is.numeric)
+Adv_g_graph_V7 [is.num] = lapply(Adv_g_graph_V7 [is.num], round, 1)
+
+Adv_g_graph_V7$Q1_Q3 = paste(Adv_g_graph_V7$Q1, Adv_g_graph_V7$Q3, sep="; ")
+Adv_g_graph_V7 = Adv_g_graph_V7 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Adv_g_graph_V7 = Adv_g_graph_V7 %>%
   slice(match(order_genus, Genus))
 
 #Bud + Form (V7) - Genus
@@ -3090,34 +3335,47 @@ Symb_g_V7_RA = dat_g_V7_RA %>%
   droplevels()
 
 Symb_g_V7_median = ddply(Symb_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                             IQR=IQR(x$Abundance)))
+                                                             IQR=IQR(x$Abundance),
+                                                             Quantile=quantile(x$Abundance)))
+
+Symb_g_V7_median = Symb_g_V7_median [,-c(4,6,8)]
+colnames (Symb_g_V7_median)[4] = "Q1"
+colnames (Symb_g_V7_median)[5] = "Q3"
 
 Symb_g_V7_median$RA_median_genus = Symb_g_V7_median$RA_median_genus *100
 Symb_g_V7_median$IQR = Symb_g_V7_median$IQR *100
-Symb_g_V7_median$Genus = factor(Symb_g_V7_median$Genus, levels = order_genus)
-Symb_g_V7_median = Symb_g_V7_median[-6,]
+Symb_g_V7_median$Q1 = Symb_g_V7_median$Q1*100
+Symb_g_V7_median$Q3 = Symb_g_V7_median$Q3*100
 
-Symb_graph_g_V7 =  Symb_g_V7 %>%
+Symb_g_V7_median$Genus = factor(Symb_g_V7_median$Genus, levels = order_genus)
+
+Symb_g_graph_V7 =  Symb_g_V7 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+Symb_g_graph_V7 = Symb_g_graph_V7 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+Symb_g_graph_V7 = Symb_g_graph_V7 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Symb_graph_g_V7 = merge (Symb_graph_g_V7, Symb_g_V7_median, by="Genus")
-Symb_graph_g_V7$Genus = factor(Symb_graph_g_V7$Genus , levels = order_genus)
-row.names(Symb_graph_g_V7) = NULL
+Symb_g_graph_V7 = merge (Symb_g_graph_V7, Symb_g_V7_median, by="Genus")
+Symb_g_graph_V7$Genus = factor(Symb_g_graph_V7$Genus , levels = order_genus)
+row.names(Symb_g_graph_V7) = NULL
 
-Symb_graph_g_V7$Group = as.factor("Bud + Form")
+Symb_g_graph_V7$Group = as.factor("Bud + Form")
 
-Symb_graph_g_V7 = Symb_graph_g_V7 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Symb_g_graph_V7 = Symb_g_graph_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Symb_graph_g_V7 = Symb_graph_g_V7 %>%
+is.num = sapply(Symb_g_graph_V7, is.numeric)
+Symb_g_graph_V7 [is.num] = lapply(Symb_g_graph_V7 [is.num], round, 1)
+
+Symb_g_graph_V7$Q1_Q3 = paste(Symb_g_graph_V7$Q1, Symb_g_graph_V7$Q3, sep="; ")
+Symb_g_graph_V7 = Symb_g_graph_V7 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Symb_g_graph_V7 = Symb_g_graph_V7 %>%
   slice(match(order_genus, Genus))
 
 #Form (V7) - Genus
@@ -3130,49 +3388,62 @@ Oxeze_g_V7_RA = dat_g_V7_RA %>%
   droplevels()
 
 Oxeze_g_V7_median = ddply(Oxeze_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                               IQR=IQR(x$Abundance)))
+                                                               IQR=IQR(x$Abundance),
+                                                               Quantile=quantile(x$Abundance)))
+
+Oxeze_g_V7_median = Oxeze_g_V7_median [,-c(4,6,8)]
+colnames (Oxeze_g_V7_median)[4] = "Q1"
+colnames (Oxeze_g_V7_median)[5] = "Q3"
 
 Oxeze_g_V7_median$RA_median_genus = Oxeze_g_V7_median$RA_median_genus *100
 Oxeze_g_V7_median$IQR = Oxeze_g_V7_median$IQR *100
-Oxeze_g_V7_median$Genus = factor(Oxeze_g_V7_median$Genus, levels = order_genus)
-Oxeze_g_V7_median = Oxeze_g_V7_median[-6,]
+Oxeze_g_V7_median$Q1 = Oxeze_g_V7_median$Q1*100
+Oxeze_g_V7_median$Q3 = Oxeze_g_V7_median$Q3*100
 
-Oxeze_graph_g_V7 =  Oxeze_g_V7 %>%
+Oxeze_g_V7_median$Genus = factor(Oxeze_g_V7_median$Genus, levels = order_genus)
+
+Oxeze_g_graph_V7 =  Oxeze_g_V7 %>%
   group_by(Genus) %>%
   summarise (total_reads_genus  = sum(Abundance),
              median_reads_genus = median(Abundance))
 
-Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+Oxeze_g_graph_V7 = Oxeze_g_graph_V7 %>%
   mutate (total_reads_overall  = sum(total_reads_genus))
 
-Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+Oxeze_g_graph_V7 = Oxeze_g_graph_V7 %>%
   mutate (RA_mean_genus = (total_reads_genus/total_reads_overall)*100)
 
-Oxeze_graph_g_V7 = merge (Oxeze_graph_g_V7, Oxeze_g_V7_median, by="Genus")
-Oxeze_graph_g_V7$Genus = factor(Oxeze_graph_g_V7$Genus , levels = order_genus)
-row.names(Oxeze_graph_g_V7) = NULL
+Oxeze_g_graph_V7 = merge (Oxeze_g_graph_V7, Oxeze_g_V7_median, by="Genus")
+Oxeze_g_graph_V7$Genus = factor(Oxeze_g_graph_V7$Genus , levels = order_genus)
+row.names(Oxeze_g_graph_V7) = NULL
 
-Oxeze_graph_g_V7$Group = as.factor("Form")
+Oxeze_g_graph_V7$Group = as.factor("Form")
 
-Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+Oxeze_g_graph_V7 = Oxeze_g_graph_V7 %>%
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Oxeze_graph_g_V7 = Oxeze_graph_g_V7 %>%
+is.num = sapply(Oxeze_g_graph_V7, is.numeric)
+Oxeze_g_graph_V7 [is.num] = lapply(Oxeze_g_graph_V7 [is.num], round, 1)
+
+Oxeze_g_graph_V7$Q1_Q3 = paste(Oxeze_g_graph_V7$Q1, Oxeze_g_graph_V7$Q3, sep="; ")
+Oxeze_g_graph_V7 = Oxeze_g_graph_V7 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Oxeze_g_graph_V7 = Oxeze_g_graph_V7 %>%
   slice(match(order_genus, Genus))
 
 #Table Genus - V7 (Randomization Arm)
-Table_V7_g_Arm = cbind (Symb_graph_g_V7 [,c(2,3,4,5)], Adv_graph_g_V7 [,c(3,4,5)], Oxeze_graph_g_V7 [,c(3,4,5)])
-colnames (Table_V7_g_Arm) = c("Genus", "Mean", "Median", "IQR", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V7_g_Arm = cbind (Symb_g_graph_V7 [,c(2,3,4,5,6)], Adv_g_graph_V7 [,c(3,4,5,6)], Oxeze_g_graph_V7 [,c(3,4,5,6)])
+colnames (Table_V7_g_Arm) = c("Genus", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median",  
+                              "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V7_g_Arm, is.numeric)
-Table_V7_g_Arm [is.num] = lapply(Table_V7_g_Arm [is.num], round, 2)
+Table_V7_g_Arm  = Table_V7_g_Arm [-16, ] #Removing "Others" category
 
-kable(Table_V7_g_Arm) %>%
+kable(Table_V7_g_Arm, align = "lcccccccccccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V7_g_Arm) %>%
+kable(Table_V7_g_Arm, align = "lcccccccccccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "Bud + Form" = 3,"Flu + Salm" = 3, "Form" = 3)) %>%
+  add_header_above(c(" " = 1, "Bud + Form" = 4,"Flu + Salm" = 4, "Form" = 4)) %>%
   save_kable(file = "Output-taxa-V7/Genus-V7-table-Arm.html", self_contained = T)
 
 #Comparing Randomization Arm versus Genus 
@@ -3269,12 +3540,18 @@ ICS_g_V7_RA = dat_g_V7_RA %>%
   droplevels()
 
 ICS_g_V7_median = ddply(ICS_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                           IQR=IQR(x$Abundance)))
+                                                           IQR=IQR(x$Abundance),
+                                                           Quantile=quantile(x$Abundance)))
+
+ICS_g_V7_median = ICS_g_V7_median [,-c(4,6,8)]
+colnames (ICS_g_V7_median)[4] = "Q1"
+colnames (ICS_g_V7_median)[5] = "Q3"
 
 ICS_g_V7_median$RA_median_genus = ICS_g_V7_median$RA_median_genus *100
 ICS_g_V7_median$IQR = ICS_g_V7_median$IQR *100
+ICS_g_V7_median$Q1 = ICS_g_V7_median$Q1*100
+ICS_g_V7_median$Q3 = ICS_g_V7_median$Q3*100
 ICS_g_V7_median$Genus = factor(ICS_g_V7_median$Genus, levels = order_genus)
-ICS_g_V7_median = ICS_g_V7_median [-6,]
 
 ICS_g_graph_V7 =  ICS_g_V7 %>%
   group_by(Genus) %>%
@@ -3294,9 +3571,15 @@ row.names(ICS_g_graph_V7) = NULL
 ICS_g_graph_V7$Group = as.factor("ICS")
 
 ICS_g_graph_V7 = ICS_g_graph_V7 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-ICS_g_graph_V7  = ICS_g_graph_V7  %>%
+is.num = sapply(ICS_g_graph_V7, is.numeric)
+ICS_g_graph_V7 [is.num] = lapply(ICS_g_graph_V7 [is.num], round, 1)
+
+ICS_g_graph_V7$Q1_Q3 = paste(ICS_g_graph_V7$Q1, ICS_g_graph_V7$Q3, sep="; ")
+ICS_g_graph_V7 = ICS_g_graph_V7 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+ICS_g_graph_V7 = ICS_g_graph_V7 %>%
   slice(match(order_genus, Genus))
 
 #Non-ICS (V7) - Genus
@@ -3309,12 +3592,18 @@ Non_ICS_g_V7_RA = dat_g_V7_RA %>%
   droplevels()
 
 Non_ICS_g_V7_median = ddply(Non_ICS_g_V7_RA, ~Genus, function(x) c(RA_median_genus=median(x$Abundance),
-                                                                   IQR=IQR(x$Abundance)))
+                                                                   IQR=IQR(x$Abundance),
+                                                                   Quantile=quantile(x$Abundance)))
+
+Non_ICS_g_V7_median = Non_ICS_g_V7_median [,-c(4,6,8)]
+colnames (Non_ICS_g_V7_median)[4] = "Q1"
+colnames (Non_ICS_g_V7_median)[5] = "Q3"
 
 Non_ICS_g_V7_median$RA_median_genus = Non_ICS_g_V7_median$RA_median_genus *100
 Non_ICS_g_V7_median$IQR = Non_ICS_g_V7_median$IQR *100
+Non_ICS_g_V7_median$Q1 = Non_ICS_g_V7_median$Q1*100
+Non_ICS_g_V7_median$Q3 = Non_ICS_g_V7_median$Q3*100
 Non_ICS_g_V7_median$Genus = factor(Non_ICS_g_V7_median$Genus, levels = order_genus)
-Non_ICS_g_V7_median = Non_ICS_g_V7_median [-6,]
 
 Non_ICS_g_graph_V7 =  Non_ICS_g_V7 %>%
   group_by(Genus) %>%
@@ -3334,24 +3623,29 @@ row.names(Non_ICS_g_graph_V7) = NULL
 Non_ICS_g_graph_V7$Group = as.factor("Non-ICS")
 
 Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
-  select(Group, Genus, RA_mean_genus, RA_median_genus, IQR)
+  select(Group, Genus, RA_mean_genus, RA_median_genus, Q1, Q3, IQR)
 
-Non_ICS_g_graph_V7  = Non_ICS_g_graph_V7  %>%
+is.num = sapply(Non_ICS_g_graph_V7, is.numeric)
+Non_ICS_g_graph_V7 [is.num] = lapply(Non_ICS_g_graph_V7 [is.num], round, 1)
+
+Non_ICS_g_graph_V7$Q1_Q3 = paste(Non_ICS_g_graph_V7$Q1, Non_ICS_g_graph_V7$Q3, sep="; ")
+Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
+  select (Group, Genus, RA_mean_genus, RA_median_genus, Q1_Q3, IQR)
+Non_ICS_g_graph_V7 = Non_ICS_g_graph_V7 %>%
   slice(match(order_genus, Genus))
 
 #Table Genus - V7 (ICS status)
-Table_V7_g_ICS = cbind (ICS_g_graph_V7 [,c(2,3,4,5)], Non_ICS_g_graph_V7 [,c(3,4,5)])
-colnames (Table_V7_g_ICS) = c("Phylum", "Mean", "Median", "IQR", "Mean", "Median", "IQR")
+Table_V7_g_ICS = cbind (ICS_g_graph_V7 [,c(2,3,4,5,6)], Non_ICS_g_graph_V7 [,c(3,4,5,6)])
+colnames (Table_V7_g_ICS) = c("Genus", "Mean", "Median", "Q1; Q3", "IQR", "Mean", "Median", "Q1; Q3", "IQR")
 
-is.num = sapply(Table_V7_g_ICS, is.numeric)
-Table_V7_g_ICS [is.num] = lapply(Table_V7_g_ICS [is.num], round, 2)
+Table_V7_g_ICS = Table_V7_g_ICS  [-16, ] #Removing "Others" category
 
-kable(Table_V7_g_ICS) %>%
+kable(Table_V7_g_ICS, align = "lcccccccc") %>%
   kable_styling(fixed_thead = T)
 
-kable(Table_V7_g_ICS) %>%
+kable(Table_V7_g_ICS, align = "lcccccccc") %>%
   kable_styling("striped") %>%
-  add_header_above(c(" " = 1, "ICS" = 3, "Non-ICS" = 3)) %>%
+  add_header_above(c(" " = 1, "ICS" = 4, "Non-ICS" = 4)) %>%
   save_kable(file = "Output-taxa-V7/Genus-V7-table-ICS.html", self_contained = T)
 
 #Comparing ICS status versus Genus 
