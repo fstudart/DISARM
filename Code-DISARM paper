@@ -838,6 +838,33 @@ alpha_diversity_final_v3 %>%
 
 kruskal.test (shannon ~ Treatment_Arm)
 
+#Evenness vs. Randomization Arm (V3)
+xlabs <- paste(levels(alpha_diversity_final_v3$Treatment_Arm),"\n(N=",table(alpha_diversity_final_v3$Treatment_Arm),")",sep="")
+
+ggplot(alpha_diversity_final_v3, aes(x=Treatment_Arm, y=pielou_e, fill=Treatment_Arm)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Pielou´s Evenness\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 1)) + 
+  scale_y_continuous(breaks=seq(0, 1, 0.2)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-Arm-Evenness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(Treatment_Arm) %>%
+  summarise(median = median (pielou_e), IQR = IQR (observed_otus))
+
+kruskal.test (pielou_e ~ Treatment_Arm)
+
 #Richness vs. ICS status (V3)
 xlabs <- paste(levels(alpha_diversity_final_v3$ICS),"\n(N=",table(alpha_diversity_final_v3$ICS),")",sep="")
 
@@ -889,6 +916,31 @@ alpha_diversity_final_v3 %>%
   summarise(median = median (shannon), IQR = IQR (shannon))
 
 wilcox.test(shannon ~ ICS, paired = FALSE, exact = TRUE)
+
+#Evenness vs. ICS status (V3)
+ggplot(alpha_diversity_final_v3, aes(x=ICS, y=pielou_e, fill=ICS)) + geom_boxplot() +
+  theme_bw() +
+  guides(fill=guide_legend(title=NULL))+
+  xlab(NULL) +
+  ylab("Pielou´s Evenness\n") +
+  theme(plot.title = element_text(color="black", face="bold", size=18, hjust=0.5)) +
+  theme(axis.title = element_text(color="black", face="bold", size=18)) +
+  theme(axis.text.x = element_text(color="black", size=18, face="bold")) +
+  theme(axis.text.y = element_text(color="black", size=18, face="bold")) +
+  coord_cartesian(ylim=c(0, 1)) + 
+  scale_y_continuous(breaks=seq(0, 1, 0.2)) +
+  scale_x_discrete(labels=xlabs) +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggsave(filename = "Output-diversity-V3/V3-Disarm-ICS-Evenness.tiff",
+       width = 8, height = 6, dpi = 300, units = "in", device='tiff', compression = "lzw")
+
+alpha_diversity_final_v3 %>%
+  group_by(ICS) %>%
+  summarise(median = median (pielou_e), IQR = IQR (shannon))
+
+wilcox.test(pielou_e ~ ICS, paired = FALSE, exact = TRUE)
 
 ---------------------------------------------------------------Alpha Diversity Analyses (V7)----------------------------------------------------------------------------------
 alpha_diversity_final_V7 <- merge(alpha_diversity_V7, metadata_V7,by="SampleID")
