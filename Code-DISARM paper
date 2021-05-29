@@ -457,9 +457,139 @@ qiime longitudinal pairwise-differences \
   --p-individual-id-column Unique_ID \
   --p-replicate-handling random \
   --o-visualization shannon-pairwise-differences-ics.qzv
+  
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PART V - PROCRUSTES ANALYSES - Environment: QIIME2 (2021.4)  
+#All samples rarefied to the same sampling depth (3,146 reads)
+
+1) Bud + Form  
+qiime diversity beta-phylogenetic \
+--i-table Symb-V3-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Symb-V3-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Symb-V3-unweighted_unifrac.qza \
+--o-pcoa Symb-V3-pcoa.qza
+  
+qiime diversity beta-phylogenetic \
+--i-table Symb-V7-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Symb-V7-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Symb-V7-unweighted_unifrac.qza \
+--o-pcoa Symb-V7-pcoa.qza
+
+mkdir Procrust-Symb
+  
+qiime diversity procrustes-analysis \
+--i-reference Symb-V3-pcoa.qza \
+--i-other Symb-V7-pcoa.qza \
+--p-dimensions 10 \
+--o-transformed-reference Procrust-Symb/Symb-unweighted_unifrac_pcoa-V3-transformed.qza \
+--o-transformed-other Procrust-Symb/Symb-unweighted_unifrac_pcoa-V7-transformed.qza \
+--o-disparity-results Procrust-Symb/Symb-pcoa_distance_disparity.qza
+
+qiime metadata tabulate \
+  --m-input-file Procrust-Symb/Symb-pcoa_distance_disparity.qza \
+  --o-visualization Procrust-Symb/Symb-pcoa_distance_disparity.qzv
+  
+qiime emperor procrustes-plot \
+--i-reference-pcoa Symb-V3-pcoa.qza \
+--i-other-pcoa Symb-V7-pcoa.qza \
+--i-m2-stats Procrust-Symb/Symb-pcoa_distance_disparity.qza \
+--m-metadata-file Disarm_metadata-symb-procrust.txt \
+--o-visualization Procrust-Symb/Symb-procrust-plot.qzv
+  
+2) Flu + Salm  
+qiime diversity beta-phylogenetic \
+--i-table Adv-V3-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Adv-V3-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Adv-V3-unweighted_unifrac.qza \
+--o-pcoa Adv-V3-pcoa.qza
+  
+qiime diversity beta-phylogenetic \
+--i-table Adv-V7-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Adv-V7-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Adv-V7-unweighted_unifrac.qza \
+--o-pcoa Adv-V7-pcoa.qza
+
+mkdir Procrust-Adv
+  
+qiime diversity procrustes-analysis \
+--i-reference Adv-V3-pcoa.qza \
+--i-other Adv-V7-pcoa.qza \
+--p-dimensions 10 \
+--o-transformed-reference Procrust-Adv/Adv-unweighted_unifrac_pcoa-V3-transformed.qza \
+--o-transformed-other Procrust-Adv/Adv-unweighted_unifrac_pcoa-V7-transformed.qza \
+--o-disparity-results Procrust-Adv/Adv-pcoa_distance_disparity.qza
+
+qiime metadata tabulate \
+  --m-input-file Procrust-Adv/Adv-pcoa_distance_disparity.qza \
+  --o-visualization Procrust-Adv/Adv-pcoa_distance_disparity.qzv
+  
+qiime emperor procrustes-plot \
+--i-reference-pcoa Adv-V3-pcoa.qza \
+--i-other-pcoa Adv-V7-pcoa.qza \
+--i-m2-stats Procrust-Adv/Adv-pcoa_distance_disparity.qza \
+--m-metadata-file Disarm_metadata-Adv-procrust.txt \
+--o-visualization Procrust-Adv/Adv-procrust-plot.qzv
+  
+3) Form 
+qiime diversity beta-phylogenetic \
+--i-table Oxeze-V3-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Oxeze-V3-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Oxeze-V3-unweighted_unifrac.qza \
+--o-pcoa Oxeze-V3-pcoa.qza
+  
+qiime diversity beta-phylogenetic \
+--i-table Oxeze-V7-reindexed-table.qza \
+--i-phylogeny rooted_tree.qza \
+--p-metric unweighted_unifrac \
+--o-distance-matrix Oxeze-V7-unweighted_unifrac.qza
+
+qiime diversity pcoa \
+--i-distance-matrix Oxeze-V7-unweighted_unifrac.qza \
+--o-pcoa Oxeze-V7-pcoa.qza
+
+mkdir Procrust-Oxeze
+  
+qiime diversity procrustes-analysis \
+--i-reference Oxeze-V3-pcoa.qza \
+--i-other Oxeze-V7-pcoa.qza \
+--p-dimensions 10 \
+--o-transformed-reference Procrust-Oxeze/Oxeze-unweighted_unifrac_pcoa-V3-transformed.qza \
+--o-transformed-other Procrust-Oxeze/Oxeze-unweighted_unifrac_pcoa-V7-transformed.qza \
+--o-disparity-results Procrust-Oxeze/Oxeze-pcoa_distance_disparity.qza
+
+qiime metadata tabulate \
+  --m-input-file Procrust-Oxeze/Oxeze-pcoa_distance_disparity.qza \
+  --o-visualization Procrust-Oxeze/Oxeze-pcoa_distance_disparity.qzv
+  
+qiime emperor procrustes-plot \
+--i-reference-pcoa Oxeze-V3-pcoa.qza \
+--i-other-pcoa Oxeze-V7-pcoa.qza \
+--i-m2-stats Procrust-Oxeze/Oxeze-pcoa_distance_disparity.qza \
+--m-metadata-file Disarm_metadata-Oxeze-procrust.txt \
+--o-visualization Procrust-Oxeze/Oxeze-procrust-plot.qzv  
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PART V - EXPORTING SOURCE FILES / Environment: QIIME2 (2020.2)
+PART VI - EXPORTING SOURCE FILES / Environment: QIIME2 (2020.2)
 
 cd ..
 
@@ -501,7 +631,7 @@ sed -i '2d' exported/taxonomy1.tsv
 biom add-metadata -i exported/Disarm-table.biom -o exported/Disarm-table-with-taxonomy.biom --observation-metadata-fp exported/taxonomy1.tsv --sc-separated taxonomy
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PART VI - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
+PART VII - ALPHA AND DIVERSITY ANALYSES / Environment: R (4.02)
 
 rm(list=ls())
 library(phyloseq)
@@ -1182,7 +1312,7 @@ beta_UU_ICS_V7 <- betadisper(Dist_UU_Q_V7, sampledf_V7$ICS)
 permutest(beta_UU_ICS_V7)
 
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PART VII -  TAXONOMIC ANALYSES / Environment: R (4.02)
+PART VIII -  TAXONOMIC ANALYSES / Environment: R (4.02)
 
 rm(list=ls())
 
