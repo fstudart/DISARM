@@ -482,7 +482,6 @@ qiime longitudinal pairwise-differences \
   --p-replicate-handling random \
   --o-visualization pielou_e-pairwise-differences-ics.qzv
 
-
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 PART V - PROCRUSTES ANALYSES - Environment: QIIME2 (2021.4)  
 #All samples rarefied to the same sampling depth (3,146 reads)
@@ -629,7 +628,7 @@ qiime feature-table summarize \
   --m-sample-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
   --o-visualization Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qzv
   
-#Exporting BIOM file (not subsampled)  
+#Exporting BIOM file  
 qiime tools export \
 --input-path Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla-rarefaction.qza  \
 --output-path exported
