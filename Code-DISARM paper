@@ -458,6 +458,31 @@ qiime longitudinal pairwise-differences \
   --p-replicate-handling random \
   --o-visualization shannon-pairwise-differences-ics.qzv
   
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file evenness_vector.qza \
+  --p-metric pielou_e \
+  --p-group-column Treatment_Arm \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization pielou_e-pairwise-differences-arm.qzv
+
+qiime longitudinal pairwise-differences \
+  --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
+  --m-metadata-file evenness_vector.qza \
+  --p-metric pielou_e \
+  --p-group-column ICS \
+  --p-state-column Visit \
+  --p-state-1 V3 \
+  --p-state-2 V7 \
+  --p-individual-id-column Unique_ID \
+  --p-replicate-handling random \
+  --o-visualization pielou_e-pairwise-differences-ics.qzv
+
+
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 PART V - PROCRUSTES ANALYSES - Environment: QIIME2 (2021.4)  
 #All samples rarefied to the same sampling depth (3,146 reads)
