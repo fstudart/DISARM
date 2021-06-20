@@ -375,7 +375,7 @@ cd core-metrics-results
 qiime diversity core-metrics-phylogenetic \
   --i-phylogeny mafft-fasttree-output/rooted_tree.qza \
   --i-table Disarm-only-samples-dada2-both-runs-after-decontam-contingency-phyla.qza \
-  --p-sampling-depth 3101 \
+  --p-sampling-depth 3146 \
   --m-metadata-file Disarm_metadata-V3-V7-simplified-for-R1.txt \
   --output-dir core-metrics-results
 
